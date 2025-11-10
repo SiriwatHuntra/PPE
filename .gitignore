@@ -37,13 +37,7 @@ Model/*.onnx
 *.dat
 
 # --- Images and captured data ---
-asset/Image/
-!asset/SelectMenu.ui
-!asset/Scandisplay_without_label_IDC.ui
-log/data/
-log/pass/
-log/fail/
-log/timeout/
+log
 
 # --- System configs ---
 *.json
