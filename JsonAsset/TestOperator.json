@@ -1,0 +1,81 @@
+[	
+	{
+		"EmpNo": "008261",
+		"Name": "WARATCHANOK" ,
+		"Surname": "THIRAPHOKIN",
+		"Position": "M"
+	},
+	{
+		"EmpNo": "000742", 
+		"Name": "AMNUAY" ,
+		"Surname": "NONSREE",
+		"Position": "M" 
+	},
+	{
+		"EmpNo": "008060",
+		"Name": "ANUWAT" ,
+		"Surname": "WANNARAT",
+		"Position": "M"
+		 
+	},
+	{
+		"EmpNo": "008072",
+		"Name": "NAMPHET" ,
+		"Surname": "TONGMUN",
+		"Position": "M"
+	},
+	{
+		"EmpNo": "001086",
+		"Name": "AMNAD" ,
+		"Surname": "CHUAYSONG",
+		"Position": "M"  
+	},
+	{
+		"EmpNo": "001111",
+		"Name": "MANOCH" ,
+		"Surname": "BANGLUAM",
+		"Position": "M" 
+	},
+	{
+		"EmpNo": "001113",
+		"Name": "SOMKID" ,
+		"Surname": "PHU-NGAMNIL",
+		"Position": "M"  
+	},
+	{
+		"EmpNo": "001090",
+		"Name": "VEERASAK" ,
+		"Surname": "TIPPARAT",
+		"Position": "M" 
+	},
+	{
+		"EmpNo": "001655",
+		"Name": "SA-NGOP" ,
+		"Surname": "DEEWAJA",
+		"Position": "O"  
+	},
+	{
+		"EmpNo": "002178",
+		"Name": "TEERAWAT" ,
+		"Surname": "CHAI-NGERN",
+		"Position": "O"  
+	},
+	{
+		"EmpNo": "002807",
+		"Name": "NARONGRIT" ,
+		"Surname": "BOONCHAIWATTANACHOT",
+		"Position": "O"  
+	},
+	{
+		"EmpNo": "011293",
+		"Name": "SIRIWAT" ,
+		"Surname": "HUNTRA",
+		"Position": "O"  
+	},
+	{
+		"EmpNo": "011294",
+		"Name": "ATIPAT" ,
+		"Surname": "THARAKIJ",
+		"Position": "O"  
+	}		
+]

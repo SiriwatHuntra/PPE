@@ -1,0 +1,12 @@
+13:52:35 | INFO | Application   | init_logger | Logger initialized for 'Application  ' → log/text\2025-11-03.log
+13:52:35 | INFO | Inferences | init_logger | Logger initialized for 'Inferences' → log/text\2025-11-03.log
+13:52:35 | INFO | Model_Handler | init_logger | Logger initialized for 'Model_Handler' → log/text\2025-11-03.log
+13:52:36 | INFO | Processor     | init_logger | Logger initialized for 'Processor    ' → log/text\2025-11-03.log
+13:52:36 | INFO | Interface     | init_logger | Logger initialized for 'Interface    ' → log/text\2025-11-03.log
+13:52:36 | INFO | IO | init_logger | Logger initialized for 'IO' → log/text\2025-11-03.log
+13:52:37 | INFO | Model_Handler | initialize_model | Model loaded successfully.
+13:52:37 | INFO | Interface     | __init__ | UI initialized and ready.
+13:52:37 | WARNING | IO | init_serial | RFID not found — starting watcher.
+13:52:37 | WARNING | IO | init_serial | RFID not found — starting watcher.
+13:52:39 | ERROR | IO | open_camera | Failed to open camera (index=0)
+13:52:40 | INFO | Interface     | closeEvent | Application closed by user.

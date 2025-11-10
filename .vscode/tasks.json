@@ -1,0 +1,6 @@
+{
+	"label": "Open Qt desinger",
+	"type": "shell",
+	"command": "C:/Users/netuser003/Documents/manop/Branch/venv/Lib/site-packages/qt5_applications/Qt/bin/designer.exe",
+	"problemMatcher": []
+}

@@ -1,0 +1,5 @@
+Edit list
+
+- IO: _emg_open, def() → method def(self)
+- LOGGER: read_log_sum →update missing header handle
+- Model_opt: add model missing handler

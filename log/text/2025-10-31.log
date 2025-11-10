@@ -1,0 +1,10 @@
+14:28:28 | INFO | Application   | init_logger | Logger initialized for 'Application  ' → log/text\2025-10-31.log
+14:28:28 | INFO | Inferences | init_logger | Logger initialized for 'Inferences' → log/text\2025-10-31.log
+14:28:29 | INFO | Model_Handler | init_logger | Logger initialized for 'Model_Handler' → log/text\2025-10-31.log
+14:28:29 | INFO | Processor     | init_logger | Logger initialized for 'Processor    ' → log/text\2025-10-31.log
+14:28:29 | INFO | Interface     | init_logger | Logger initialized for 'Interface    ' → log/text\2025-10-31.log
+14:28:29 | INFO | IO | init_logger | Logger initialized for 'IO' → log/text\2025-10-31.log
+14:28:30 | INFO | Model_Handler | initialize_model | Model loaded successfully.
+14:28:30 | INFO | Interface     | __init__ | UI initialized and ready.
+14:28:30 | WARNING | IO | init_serial | RFID not found — starting watcher.
+14:28:30 | WARNING | IO | init_serial | RFID not found — starting watcher.
