@@ -10,7 +10,7 @@ import csv
 import os
 import sys
 from LogHandler import init_logger
-import 
+from Model.augment import ImageEnhancer
 
 logger = init_logger("Inferences")
 
@@ -27,6 +27,7 @@ CLASS_NAMES = {0: 'Arm', 1: 'Cap', 2: 'Carbon_Mask', 3: 'Clothes', 4: 'Face_Shie
 FILE_MAP = {1: "Chemical.json", 2: "Solder.json", 3: "Thickness.json", 4: "GroupL.json", 5: "Manager.json"}
 
 _pre_alloc = {"blob": None, "size": (IMG_SIZE, IMG_SIZE)}
+enhancer = ImageEnhancer(enable_edgeboost=True)
 
 with open('JsonAsset/_map.json', 'r') as f:
     TARGET_REF = json.load(f)
@@ -358,6 +359,7 @@ def detect_objects(image_bgr: np.ndarray,
     H0, W0 = orig.shape[:2]
 
     # --- Preprocess ---
+    orig = enhancer.process(orig)
     img, scale, pad_x, pad_y = letterbox(orig, IMG_SIZE)
     blob = cv.dnn.blobFromImage(
         img, scalefactor=1/255.0, size=(IMG_SIZE, IMG_SIZE),

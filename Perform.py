@@ -36,7 +36,6 @@ def camera_loop(handler: ModelHandler):
         print("[ERROR] Cannot open camera.")
         return
 
-    print("[INFO] Camera opened. Press 'q' to stop.")
     frame_count = 0
     t_last = time.time()
 
@@ -49,7 +48,7 @@ def camera_loop(handler: ModelHandler):
         handler.push_frame(frame)
 
         # Optional display
-        if SHOW_WINDOW and hasattr(handler, "last_detected"):
+        if SHOW_WINDOW:
             annotated = getattr(handler, "last_annotated", frame)
             fps_text = f"FPS: {get_fps():.2f}"
             cv2.putText(annotated, fps_text, (10, 40),
