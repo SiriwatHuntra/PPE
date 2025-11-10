@@ -17,7 +17,7 @@ class ImageEnhancer:
         return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 
-    def enhance_edges(self, frame, weight=0.5):
+    def enhance_edges(self, frame, weight=0.7):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 80, 150)
         edges_colored = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
@@ -30,7 +30,7 @@ class ImageEnhancer:
         return cv2.filter2D(frame, -1, kernel)
 
     # ---- new plugin: edge contrast booster ----
-    def edge_contrast_boost(self, frame, edge_weight=0.6, detail_strength=1.0):
+    def edge_contrast_boost(self, frame, edge_weight=1.0, detail_strength=1.0):
         # single grayscale conversion, cheaper filters
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 100, 200)
@@ -51,3 +51,39 @@ class ImageEnhancer:
         if self.enable_edgeboost:
             frame = self.edge_contrast_boost(frame)
         return frame
+
+def run_cam_test():
+    """Run webcam test for live enhancement"""
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("❌ Cannot open camera")
+        return
+
+    enhancer = ImageEnhancer()
+    use_enhance = True
+    print("Press [a] to toggle enhancement, [q] to quit.")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        if use_enhance:
+            frame = enhancer.process(frame)
+
+        cv2.putText(frame, f"Enhance: {'ON' if use_enhance else 'OFF'}",
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        cv2.imshow("Live Enhancement", frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            break
+        elif key == ord('a'):
+            use_enhance = not use_enhance
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    run_cam_test()

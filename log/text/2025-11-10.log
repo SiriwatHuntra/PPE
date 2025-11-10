@@ -52,3 +52,9 @@
 11:28:30 | INFO | Model_Handler | initialize_model | Model loaded successfully.
 11:28:30 | INFO | Model_Handler | start_validation | Validation started.
 11:29:19 | INFO | Model_Handler | stop_validation | Validation stopped (STOP).
+11:37:57 | INFO | Inferences | init_logger | Logger initialized for 'Inferences' → log/text\2025-11-10.log
+11:37:57 | INFO | Model_Handler | init_logger | Logger initialized for 'Model_Handler' → log/text\2025-11-10.log
+11:37:57 | INFO | Inferences | task_select | Successfully load PPE list from JsonAsset/Thickness.json
+11:37:57 | INFO | Model_Handler | initialize_model | Model loaded successfully.
+11:37:57 | INFO | Model_Handler | start_validation | Validation started.
+11:38:03 | INFO | Model_Handler | stop_validation | Validation stopped (STOP).
