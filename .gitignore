@@ -39,6 +39,9 @@ Model/*.onnx
 # --- Images and captured data ---
 log
 
+# --- Devpack ignore ---
+Packages
+
 # --- System configs ---
 *.json
 !JsonAsset/*.json    # keep these config assets
