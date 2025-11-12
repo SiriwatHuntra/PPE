@@ -417,6 +417,9 @@ class IOHandler(QtCore.QObject):
         self._emg_running = False
 
     def _emg_loop(self):
+        first_read = True
+        self._emg_state = None
+
         while getattr(self, "_emg_running", False):
             try:
                 bits = self.adam_read_di(self.BASE_DI, 12)
@@ -425,15 +428,24 @@ class IOHandler(QtCore.QObject):
                 # If button wired to ISO GND (pressed=0V), invert:
                 emg_active = not val
 
-                if emg_active != getattr(self, "_emg_state", None):
+                if first_read:
+                    self._emg_state = emg_active
+                    first_read = False
+                    logger.info(f"Emergency initialize, Emergency state: {emg_active}")
+                    QtCore.QThread.msleep(200)
+                    continue
+
+                if emg_active != self._emg_state:
                     self._emg_state = emg_active
                     if emg_active:
+                        write_csv_log("Emergency", status="EMERGENCY_TRIGGERED")
                         self.emergency_triggered.emit()
                         self.close_door()
                     else:
+                        write_csv_log("Emergency", status="EMERGENCY_CLEARED")
                         self.emergency_cleared.emit()
-
                 QtCore.QThread.msleep(100)
+
             except Exception as e:
                 self.init_adam()
                 logger.error(f"Emergency loop error: {e}")

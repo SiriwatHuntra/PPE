@@ -4,7 +4,7 @@ from PyQt5 import QtCore
 from PyQt5.QtGui import QPixmap, QImage
 from ModelHandler import ModelHandler
 from LogHandler import write_csv_log, init_logger, write_db_log
-from pyMail import mail2all
+# from pyMail import mail2all
 
 logger = init_logger("Processor    ")
 
@@ -472,7 +472,8 @@ class LogicController(QtCore.QObject):
             self.ui.blink_emergency()
 
         try: 
-            mail2all("Emergency", "PPE detection", "Emergency button pushed")
+            # mail2all("Emergency", "PPE detection", "Emergency button pushed")
+            print("")
         except:
             logger.info("Fail to active email sender")
 
