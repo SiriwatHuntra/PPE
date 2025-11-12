@@ -5,7 +5,7 @@ from datetime import datetime
 # from LogHandler import init_logger
 
 # logger = init_logger("Mail_Alert")  # uncomment if logging is available
-email_list = [".com"]
+email_list = ["siriwat.hun@mnf2.rohmthai.com"]
 
 SMTPSERVER = "10.28.32.81"
 PORT = 587
