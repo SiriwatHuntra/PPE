@@ -149,7 +149,7 @@ color: #F2F2F2;
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">background-color: #2B2B2B;
+     <string notr="true">background-color: #C9DFEE;
 border-radius:10px</string>
     </property>
     <property name="text">
@@ -350,10 +350,10 @@ border-radius:10px</string>
    <widget class="QPushButton" name="closebtnSelect">
     <property name="geometry">
      <rect>
-      <x>1810</x>
+      <x>1819</x>
       <y>30</y>
-      <width>80</width>
-      <height>80</height>
+      <width>71</width>
+      <height>71</height>
      </rect>
     </property>
     <property name="font">
@@ -364,20 +364,20 @@ border-radius:10px</string>
      </font>
     </property>
     <property name="styleSheet">
-     <string notr="true">background-color:  #8b0000;
-border: 2px solid #a40000;
-border-radius: 15px;
-</string>
+     <string notr="true">background-color:none;</string>
     </property>
     <property name="icon">
      <iconset>
-      <normaloff>Image/close.png</normaloff>Image/close.png</iconset>
+      <normaloff>Image/cross.png</normaloff>Image/cross.png</iconset>
     </property>
     <property name="iconSize">
      <size>
       <width>65</width>
       <height>65</height>
      </size>
+    </property>
+    <property name="flat">
+     <bool>true</bool>
     </property>
    </widget>
   </widget>
