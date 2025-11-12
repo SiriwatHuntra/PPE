@@ -2,22 +2,20 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
-from LogHandler import init_logger
+# from LogHandler import init_logger
 
-logger = init_logger("Mail Sended")  # uncomment if logging is available
+# logger = init_logger("Mail_Alert")  # uncomment if logging is available
 email_list = [".com"]
 
-SMTPSERVER = "smtp-mail.outlook.com"
-PORT = 587 
-SENDER = "@rohmthai.com"
-APP_AUTH = "" #PASS/KEY
+SMTPSERVER = "10.28.32.81"
+PORT = 587
+SENDER = "lsi_server_admin@mnf2.rohmthai.com"
+#no pass
 
 
-def mail2all(event,
-            location, 
-            detail):
+def mail_to_stakeholder(event, location, detail):
     """
-    Send the same emergency alert to all mail in email_list[].
+    Send the same emergency alert to all stakeholders.
     """
     for receiver in email_list:
         send_emergency_email(
@@ -78,9 +76,9 @@ def send_emergency_email(
             server.login(sender_email, sender_pass)
             server.sendmail(sender_email, [receiver], msg.as_string())
 
-        logger.info(f"Emergency email sent to {receiver}")
+        print(f"Emergency email sent to {receiver}")
 
     except Exception as e:
-        logger.error(f"Failed to send emergency email: {e}")
+        print(f"Failed to send emergency email: {e}")
 
-#mail_to_stakeholder("Testing", "Workplace", "Tesing mailer function")
+mail_to_stakeholder("Testing", "Workplace", "Tesing mailer function")
