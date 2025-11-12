@@ -1,7 +1,5 @@
 # Main.py (Refactored startup)
-import logging
-import sys
-import os
+import logging, sys, os
 from LogHandler import init_logger
 
 logger = init_logger("Application  ")
@@ -10,15 +8,15 @@ logger = init_logger("Application  ")
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-try:
-    # logging.basicConfig(level=logging.INFO)
-    logging.info("Loading ONNX model before PyQt startup...")
-    from Model.Model_optimize import load_model
-    load_model()
-    logging.info("ONNX model initialized successfully.")
-except Exception as e:
-    logging.error(f"Failed to load ONNX model: {e}")
-    sys.exit(1)
+# try:
+#     # logging.basicConfig(level=logging.INFO)
+#     logging.info("Loading ONNX model before PyQt startup...")
+#     from Model.Model_optimize import load_model
+#     load_model()
+#     logging.info("ONNX model initialized successfully.")
+# except Exception as e:
+#     logging.error(f"Failed to load ONNX model: {e}")
+#     sys.exit(1)
 
 # ------------------ 2. Then import PyQt and modules ------------------
 from PyQt5 import QtWidgets

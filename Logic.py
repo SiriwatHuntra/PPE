@@ -287,7 +287,7 @@ class LogicController(QtCore.QObject):
                 QtCore.QTimer.singleShot(4000, self.full_reset)    
 
             else:
-                self.full_reset()
+                QtCore.QTimer.singleShot(4000, self.full_reset)
 
         # Save image
         if self.io_handler:
@@ -473,7 +473,7 @@ class LogicController(QtCore.QObject):
 
         try: 
             # mail2all("Emergency", "PPE detection", "Emergency button pushed")
-            print("")
+            print("mock up mail send")
         except:
             logger.info("Fail to active email sender")
 
@@ -494,11 +494,10 @@ class LogicController(QtCore.QObject):
                 pass
 
         # Bring UI back to idle (same as startup)
-        if self.session_active or getattr(self.ui, "labelsummary", None):
-            self.full_reset()
+        # if self.session_active or getattr(self.ui, "labelsummary", None):
+        #     self.full_reset()
         if hasattr(self.ui, "emergency_timer"):
             self.ui.emergency_timer.stop()
         if hasattr(self.ui, "hide_emergency"):
             self.ui.hide_emergency()
-        if hasattr(self.ui, "show_scan_overlay"):
-            self.ui.show_scan_overlay()
+        QtCore.QTimer.singleShot(200, self.ui.show_scan_overlay)
