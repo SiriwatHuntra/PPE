@@ -1,12 +1,11 @@
 # UI.py (Refactored)
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPixmapItem
 
 from Logic import LogicController
 from LogHandler import init_logger
 from chart import init_bar_chart, update_bar_chart
-from LogHandler import read_log_summary, read_db_total_current_year, read_db_entry_date
 
 logger = init_logger("Interface    ")
 
@@ -35,6 +34,7 @@ class MainApp(QtWidgets.QMainWindow):
         # UI default view
         self.labelsummary.setVisible(False)
         self.imgsummary.setVisible(False)
+        self.MessageTime.setVisible(False)
         self.labelIDCard.setAlignment(Qt.AlignCenter)
 
         # Add UI Dashboard
@@ -54,6 +54,9 @@ class MainApp(QtWidgets.QMainWindow):
             self.closebutton.clicked.connect(self.trigger_close)
             self.closebutton.setVisible(True)
             
+        if hasattr(self.logic, "io") and hasattr(self.logic.io, "summary_text"):
+            self.logic.io.summary_text.connect(self.set_summary_text)
+
     # ---------------- SIGNAL CONNECTIONS ----------------
     def connect_signals(self):
         """Connect menu and controller signals."""
@@ -110,6 +113,20 @@ class MainApp(QtWidgets.QMainWindow):
         self.GraphEoD.setVisible(True)
         self.labelsummary.setVisible(False)
         self.imgsummary.setVisible(False)
+        self.MessageTime.setVisible(False)
+        if hasattr(self, "labelEmergency"):
+            self.labelEmergency.setVisible(False)
+        if hasattr(self, "imgEmergency"):
+            self.imgEmergency.setVisible(False)
+        if hasattr(self, "labelRFID"):
+            self.labelRFID.setVisible(False)
+        if hasattr(self, "imgRFID"):
+            self.imgRFID.setVisible(False)
+        if hasattr(self, "labelADAM"):
+            self.labelADAM.setVisible(False)
+        if hasattr(self, "imgADAM"):
+            self.imgADAM.setVisible(False)
+
 
     # addjust
     def hide_scan_overlay(self):
@@ -128,14 +145,12 @@ class MainApp(QtWidgets.QMainWindow):
         color_map = {
             "PASS": "#228B22",
             "FAIL": "#800000",
-            "TIMEOUT": "#808080",
-            "EMERGENCY": "#8B0000"
+            "TIMEOUT": "#808080"
         }
         image_map = {
             "PASS": "asset/Image/pass.png",
             "FAIL": "asset/Image/fail.png",
-            "TIMEOUT": "asset/Image/timeout.png",
-            "EMERGENCY": "asset/Image/Emergency.png"
+            "TIMEOUT": "asset/Image/timeout.png"
         }
 
         color = color_map.get(status, "#808080")
@@ -148,47 +163,139 @@ class MainApp(QtWidgets.QMainWindow):
         pixmap = QtGui.QPixmap(image_path).scaled(250, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.imgsummary.setPixmap(pixmap)
         self.imgsummary.setVisible(True)
-    
+
     @QtCore.pyqtSlot(str)
     def set_summary_text(self, text: str):
         """Show/Hide summary banner text from IO events."""
-        if not hasattr(self, "labelsummary"):
+        if not hasattr(self, "labelRFID"):
             return
-        if text:
-            self.labelsummary.setText(text)
-            self.labelsummary.setStyleSheet(
-                "background:#DAA520; border-radius:80px; color:white; padding-top:280px; font-size:50px;"
-            )
-            self.labelsummary.setVisible(True)
-            reconnect_image_path = "asset/Image/connect.png"
-            self.imgsummary.setPixmap(QtGui.QPixmap(reconnect_image_path))
-            self.imgsummary.setScaledContents(True)
-            self.imgsummary.setVisible(True)
-        else:
-            self.labelsummary.setVisible(False)
-            self.imgsummary.setVisible(False)
+        if text == "RFID_disconnect":
+            if hasattr(self, "labelRFID"):
+                self.labelRFID.setText("RFID Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ RFID \nเชื่อมต่อกับคอมพิวเตอร์")
+                self.labelRFID.setAlignment(Qt.AlignCenter)
+                self.labelRFID.setVisible(True)
+                self.labelRFID.setStyleSheet("background:#DAA520; color:white; padding-top:460px;")
+            if hasattr(self, "imgRFID"):
+                connect_image_path = "asset/Image/connect.png"
+                self.imgRFID.setPixmap(QtGui.QPixmap(connect_image_path))
+                self.imgRFID.setScaledContents(True)
+                self.imgRFID.setVisible(True)
+        elif text == "RFID_reconnect":
+            if hasattr(self, "labelRFID"):
+                self.labelRFID.setText("RFID Connected")
+                self.labelRFID.setAlignment(Qt.AlignCenter)
+                self.labelRFID.setStyleSheet("background:#228B22; color:white; padding-top:460px;")
+                self.labelRFID.setVisible(True)
+                QtCore.QTimer.singleShot(2000, lambda: self.labelRFID.setVisible(False))
+            if hasattr(self, "imgRFID"):
+                icon_path = "asset/Image/checked.png" 
+                self.imgRFID.setPixmap(QtGui.QPixmap(icon_path))
+                self.imgRFID.setScaledContents(True)
+                self.imgRFID.setVisible(True)
+                QtCore.QTimer.singleShot(2000, lambda: self.imgRFID.setVisible(False))       
+        elif text == "ADAM_disconnect":
+            if hasattr(self, "labelADAM"):
+                self.labelADAM.setText("ADAM Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ ADAM \nเชื่อมต่อคอมพิวเตอร์")
+                self.labelADAM.setAlignment(Qt.AlignCenter)
+                self.labelADAM.setStyleSheet("background:#DAA520; color:white; padding-top:580px;")
+                self.labelADAM.setVisible(True)
+            if hasattr(self, "imgADAM"):
+                icon_path = "asset/Image/connect.png"  
+                self.imgADAM.setPixmap(QtGui.QPixmap(icon_path))
+                self.imgADAM.setScaledContents(True)
+                self.imgADAM.setVisible(True)
+        elif text == "ADAM_reconnect":
+            if hasattr(self, "labelADAM"):
+                self.labelADAM.setText("ADAM Connected")
+                self.labelADAM.setAlignment(Qt.AlignCenter)
+                self.labelADAM.setStyleSheet("background:#228B22; color:white; padding-top:580px;")
+                self.labelADAM.setVisible(True)
+                QtCore.QTimer.singleShot(2000, lambda: self.labelADAM.setVisible(False))
+            if hasattr(self, "imgADAM"):
+                icon_path = "asset/Image/checked.png" 
+                self.imgADAM.setPixmap(QtGui.QPixmap(icon_path))
+                self.imgADAM.setScaledContents(True)
+                self.imgADAM.setVisible(True)
+                QtCore.QTimer.singleShot(2000, lambda: self.imgADAM.setVisible(False))
 
-    
+    def emergency(self):
+        image_path = "asset/Image/Emergency.png"
+        self.labelEmergency.setText("!!! EMERGENCY !!!")
+        self.labelEmergency.setStyleSheet(
+            "background: #8B0000; color:white; padding-top: 380px;"
+        )
+        self.labelEmergency.setVisible(True)
+        pixmap = QtGui.QPixmap(image_path).scaled(571, 481, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.imgEmergency.setPixmap(pixmap)
+        self.imgEmergency.setVisible(True)
+   
+    def hide_emergency(self):
+        if hasattr(self, "labelEmergency"):
+            self.labelEmergency.setVisible(False)
+        if hasattr(self, "imgEmergency"):
+            self.imgEmergency.setVisible(False)
+        if hasattr(self, "labelRFID"): 
+            self.labelRFID.setVisible(False)
+        if hasattr(self, "imgRFID"):   
+            self.imgRFID.setVisible(False)
+        if hasattr(self, "labelADAM"): 
+            self.labelADAM.setVisible(False)
+        if hasattr(self, "imgADAM"):   
+            self.imgADAM.setVisible(False)
+
+    def blink_emergency(self):
+        if hasattr(self, "emergency_timer") and self.emergency_timer.isActive():
+            return
+
+        self.blink_state = True
+        self.emergency_timer = QTimer()
+        self.emergency_timer.setInterval(500)  
+        self.emergency_timer.timeout.connect(self.toggle_emergency_blink)
+        self.emergency_timer.start()
+
+    def toggle_emergency_blink(self):
+        if hasattr(self, "labelEmergency") and self.labelEmergency.isVisible():
+            self.blink_state = not self.blink_state
+            self.labelEmergency.setVisible(self.blink_state)
+            if hasattr(self, "imgEmergency"):
+                self.imgEmergency.setVisible(self.blink_state)
+        else:
+            if hasattr(self, "emergency_timer"):
+                self.emergency_timer.stop()
+
+    # def show_emergency(self):
+    #     """Show red EMERGENCY banner + emergency image on imgsummary."""
+    #     self.emergency()
+    #     if hasattr(self, "labelEmergency"):
+    #         self.labelEmergency.setVisible(True)
+    #         self.labelEmergency.raise_()
+    #     if hasattr(self, "imgEmergency"):
+    #         self.imgEmergency.raise_()
+    #         self.imgEmergency.setVisible(True)
+
+    #     if hasattr(self, "hide_scan_overlay"):
+    #         self.hide_scan_overlay()
+    #     if hasattr(self, "labelRFID"): 
+    #         self.labelRFID.setVisible(False)
+    #     if hasattr(self, "imgRFID"):   
+    #         self.imgRFID.setVisible(False)
+    #     if hasattr(self, "labelADAM"): 
+    #         self.labelADAM.setVisible(False)
+    #     if hasattr(self, "imgADAM"):   
+    #         self.imgADAM.setVisible(False)
+
     def show_emergency(self):
         """Show red EMERGENCY banner + emergency image on imgsummary."""
-        self.show_summary("EMERGENCY")
-
-        if hasattr(self, "labelIDCard"):
-            self.labelIDCard.setVisible(False)
-        if hasattr(self, "Dashboard"):
-            self.Dashboard.setVisible(False)
-        if hasattr(self, "PL_PPE"):
-            self.PL_PPE.setVisible(False)
-        if hasattr(self, "labelTotalEnt"):
-            self.labelTotalEnt.setVisible(False)
-        if hasattr(self, "totalEnt"):
-            self.totalEnt.setVisible(False)
-        if hasattr(self, "labelEoD"):
-            self.labelEoD.setVisible(False)
-        if hasattr(self, "GraphEoD"):
-            self.GraphEoD.setVisible(False)
-        if hasattr(self, "imglabel"):
-            self.imglabel.setVisible(False)
+        self.emergency()
+        if hasattr(self, "labelEmergency"): 
+            self.labelEmergency.raise_()
+        if hasattr(self, "imgEmergency"):   
+            self.imgEmergency.raise_()
+        if hasattr(self, "hide_scan_overlay"): 
+            self.hide_scan_overlay()
+        for n in ("labelRFID","imgRFID","labelADAM","imgADAM"):
+            w = getattr(self, n, None)
+            if w: w.setVisible(False)
 
     def trigger_close(self):
         """Handle manual close button click."""
@@ -207,6 +314,7 @@ class MainApp(QtWidgets.QMainWindow):
 
     # --- inside class MainApp (UI.py) ---
     def get_totals_from_summary(self, days_back=365):
+        from LogHandler import read_log_summary
         result = read_log_summary(days_back=days_back)
         return {
             "Chemical Analysis": result.get("Chemical Analysis", 0),
@@ -223,6 +331,7 @@ class MainApp(QtWidgets.QMainWindow):
         self.Total_thickness.setText("Thickness Measuerment : " + str(totals["Thickness Measurement"]))
 
         try:
+            from LogHandler import read_db_total_current_year
             total_pass_year = read_db_total_current_year(
                 server="172.16.0.102",
                 user="system",
@@ -240,6 +349,7 @@ class MainApp(QtWidgets.QMainWindow):
     # refresh dashboard
     def refresh_eod_chart(self, days=7, y_max=40):
         try:
+            from LogHandler import read_db_entry_date
             rows = read_db_entry_date(
                 server="172.16.0.102",
                 user="system",
