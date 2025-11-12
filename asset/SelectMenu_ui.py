@@ -78,7 +78,7 @@ class Ui_MainWindow(object):
         self.labelPS.setObjectName("labelPS")
         self.iconCA = QtWidgets.QLabel(self.centralwidget)
         self.iconCA.setGeometry(QtCore.QRect(470, 120, 140, 140))
-        self.iconCA.setStyleSheet("background-color: #2B2B2B;\n"
+        self.iconCA.setStyleSheet("background-color: #C9DFEE;\n"
 "border-radius:10px")
         self.iconCA.setText("")
         self.iconCA.setPixmap(QtGui.QPixmap("c:\\Users\\netuser003\\Documents\\manop\\Branch\\asset\\Image/chemical_Analysis.png"))
@@ -158,20 +158,18 @@ class Ui_MainWindow(object):
         self.iconMGR.setScaledContents(True)
         self.iconMGR.setObjectName("iconMGR")
         self.closebtnSelect = QtWidgets.QPushButton(self.centralwidget)
-        self.closebtnSelect.setGeometry(QtCore.QRect(1810, 30, 80, 80))
+        self.closebtnSelect.setGeometry(QtCore.QRect(1819, 30, 71, 71))
         font = QtGui.QFont()
         font.setPointSize(50)
         font.setBold(True)
         font.setWeight(75)
         self.closebtnSelect.setFont(font)
-        self.closebtnSelect.setStyleSheet("background-color:  #8b0000;\n"
-"border: 2px solid #a40000;\n"
-"border-radius: 15px;\n"
-"")
+        self.closebtnSelect.setStyleSheet("background-color:none;")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("c:\\Users\\netuser003\\Documents\\manop\\Branch\\asset\\Image/close.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap("c:\\Users\\netuser003\\Documents\\manop\\Branch\\asset\\Image/cross.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.closebtnSelect.setIcon(icon)
         self.closebtnSelect.setIconSize(QtCore.QSize(65, 65))
+        self.closebtnSelect.setFlat(True)
         self.closebtnSelect.setObjectName("closebtnSelect")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
