@@ -22,7 +22,6 @@ def mail_to_stakeholder(event, location, detail):
             smtp_server=SMTPSERVER,
             port=PORT,
             sender_email=SENDER,
-            sender_pass=APP_AUTH,
             receiver=receiver,
             event_name=event,
             location=location,
@@ -33,7 +32,6 @@ def send_emergency_email(
     smtp_server: str,
     port: int,
     sender_email: str,
-    sender_pass: str,
     receiver: str,
     event_name: str = "Emergency Alert",
     location: str = "Main Station",
@@ -73,7 +71,7 @@ def send_emergency_email(
 
         with smtplib.SMTP(smtp_server, port) as server:
             server.starttls()
-            server.login(sender_email, sender_pass)
+            server.login(sender_email, "")  # No password
             server.sendmail(sender_email, [receiver], msg.as_string())
 
         print(f"Emergency email sent to {receiver}")
