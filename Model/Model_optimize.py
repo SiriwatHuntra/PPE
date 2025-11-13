@@ -442,7 +442,12 @@ def detect_objects(image_bgr: np.ndarray,
             
     # --- Label mapping with vectorized IoU ---
     label_list = []
+
+    NOT_ALLOWED = ["Arm"]
+
     for target_name, ref_list in TARGET_REF.items():
+        if target_name in NOT_ALLOWED:
+            continue
         target_boxes = boxes_kept[labels == target_name]
         if target_boxes.size == 0:
             continue
