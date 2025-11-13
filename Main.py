@@ -8,15 +8,15 @@ logger = init_logger("Application  ")
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-# try:
-#     # logging.basicConfig(level=logging.INFO)
-#     logging.info("Loading ONNX model before PyQt startup...")
-#     from Model.Model_optimize import load_model
-#     load_model()
-#     logging.info("ONNX model initialized successfully.")
-# except Exception as e:
-#     logging.error(f"Failed to load ONNX model: {e}")
-#     sys.exit(1)
+try:
+    logging.basicConfig(level=logging.INFO)
+    logging.info("Loading ONNX model before PyQt startup...")
+    from Model.Model_optimize import load_model
+    load_model()
+    logging.info("ONNX model initialized successfully.")
+except Exception as e:
+    logging.error(f"Failed to load ONNX model: {e}")
+    sys.exit(1)
 
 # ------------------ 2. Then import PyQt and modules ------------------
 from PyQt5 import QtWidgets
@@ -26,6 +26,7 @@ from IO import IOHandler
 # ------------------ 3. Start application ------------------
 def main():
     app = QtWidgets.QApplication(sys.argv)
+    ui = MainApp()
 
     # Initialize UI
     window = MainApp()
@@ -33,6 +34,7 @@ def main():
 
     # Initialize IO handler
     io = IOHandler()
+    ui.logic.io_handler = io
     io.init_serial()
     io.start_rfid_thread()
     io.init_adam()                
@@ -44,7 +46,8 @@ def main():
     # Keep a reference for clean exit
     logic.io_handler = io
 
-    logic.bind_io_signals()                 
+    logic.bind_io_signals()   
+    io.summary_text.connect(ui.set_summary_text)              
     io.open_camera()
     
     window.showFullScreen()

@@ -1,11 +1,12 @@
 # UI.py (Refactored)
 from PyQt5 import QtCore, QtWidgets, QtGui, uic
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPixmapItem
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPixmapItem, QMessageBox
 
 from Logic import LogicController
+from LogHandler import init_logger, read_log_summary, read_db_entry_date, read_db_total_current_year
 from chart import init_bar_chart, update_bar_chart
-from LogHandler import init_logger, read_log_summary, read_db_total_current_year, read_db_entry_date
+from Model.Model_optimize import task_select
 
 logger = init_logger("Interface    ")
 
@@ -35,9 +36,11 @@ class MainApp(QtWidgets.QMainWindow):
         self.labelsummary.setVisible(False)
         self.imgsummary.setVisible(False)
         self.MessageTime.setVisible(False)
+        self.cameratext.setVisible(False)
+        #self.imgcameratext.setVisible(False)
         self.labelIDCard.setAlignment(Qt.AlignCenter)
 
-        # Add UI Dashboard
+        # UI Dashboard
         init_bar_chart(self.GraphEoD, y_max=40)
         self.refresh_eod_chart(days=7, y_max=40)
 
@@ -54,8 +57,6 @@ class MainApp(QtWidgets.QMainWindow):
             self.closebutton.clicked.connect(self.trigger_close)
             self.closebutton.setVisible(True)
             
-        if hasattr(self.logic, "io") and hasattr(self.logic.io, "summary_text"):
-            self.logic.io.summary_text.connect(self.set_summary_text)
 
     # ---------------- SIGNAL CONNECTIONS ----------------
     def connect_signals(self):
@@ -71,7 +72,6 @@ class MainApp(QtWidgets.QMainWindow):
         """User selected a task from menu."""
         
         # Load expected task configuration
-        from Model.Model_optimize import task_select
         expected_items = task_select(self.logic.task_tag.get(choice))
         if expected_items:
             self.logic.start_task(choice, expected_items)
@@ -85,22 +85,19 @@ class MainApp(QtWidgets.QMainWindow):
             self.cap.release()
         event.accept()
     
-    # adjust
     def _update_datetime(self):
         try:
             if hasattr(self, "DateTim"):
                 now = QtCore.QDateTime.currentDateTime()
+                self.DateTim.setDateTime(now)
                 year = now.date().year()
-                if hasattr(self, "DateTim") and isinstance(self.DateTim, QtWidgets.QDateTimeEdit):
-                    self.DateTim.setDateTime(now)
-                if not hasattr(self, "_last_year") or self._last_year != year:
+                if getattr(self, "_last_year", None) != year:
                     self._last_year = year
                     self.update_task_totals()
-        except Exception as e:
-            logger.error(f"_update_datetime failed: {e}", exc_info=True)
+        except Exception:
+            pass
 
     # --- UI helpers to react to logic events ---
-    # adjust
     def show_scan_overlay(self):
         """Show 'Please Scan Card' screen."""
         self.labelIDCard.setText("Please Scan ID Card")
@@ -128,8 +125,6 @@ class MainApp(QtWidgets.QMainWindow):
         if hasattr(self, "imgADAM"):
             self.imgADAM.setVisible(False)
 
-
-    # addjust
     def hide_scan_overlay(self):
         """Hide 'Please Scan Card' overlay when RFID detected."""
         self.labelIDCard.setVisible(False)
@@ -168,8 +163,7 @@ class MainApp(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(str)
     def set_summary_text(self, text: str):
         """Show/Hide summary banner text from IO events."""
-        if not hasattr(self, "labelRFID"):
-            return
+        print("get summary text",text)
         if text == "RFID_disconnect":
             if hasattr(self, "labelRFID"):
                 self.labelRFID.setText("RFID Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ RFID \nเชื่อมต่อกับคอมพิวเตอร์")
@@ -198,7 +192,7 @@ class MainApp(QtWidgets.QMainWindow):
             if hasattr(self, "labelADAM"):
                 self.labelADAM.setText("ADAM Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ ADAM \nเชื่อมต่อคอมพิวเตอร์")
                 self.labelADAM.setAlignment(Qt.AlignCenter)
-                self.labelADAM.setStyleSheet("background:#DAA520; color:white; padding-top:580px;")
+                self.labelADAM.setStyleSheet("background:#DAA520; color:white; padding-top:460px;")
                 self.labelADAM.setVisible(True)
             if hasattr(self, "imgADAM"):
                 icon_path = "asset/Image/connect.png"  
@@ -209,7 +203,7 @@ class MainApp(QtWidgets.QMainWindow):
             if hasattr(self, "labelADAM"):
                 self.labelADAM.setText("ADAM Connected")
                 self.labelADAM.setAlignment(Qt.AlignCenter)
-                self.labelADAM.setStyleSheet("background:#228B22; color:white; padding-top:580px;")
+                self.labelADAM.setStyleSheet("background:#228B22; color:white; padding-top:460px;")
                 self.labelADAM.setVisible(True)
                 QtCore.QTimer.singleShot(2000, lambda: self.labelADAM.setVisible(False))
             if hasattr(self, "imgADAM"):
@@ -244,26 +238,6 @@ class MainApp(QtWidgets.QMainWindow):
         if hasattr(self, "imgADAM"):   
             self.imgADAM.setVisible(False)
 
-    def blink_emergency(self):
-        if hasattr(self, "emergency_timer") and self.emergency_timer.isActive():
-            return
-
-        self.blink_state = True
-        self.emergency_timer = QTimer()
-        self.emergency_timer.setInterval(500)  
-        self.emergency_timer.timeout.connect(self.toggle_emergency_blink)
-        self.emergency_timer.start()
-
-    def toggle_emergency_blink(self):
-        if hasattr(self, "labelEmergency") and self.labelEmergency.isVisible():
-            self.blink_state = not self.blink_state
-            self.labelEmergency.setVisible(self.blink_state)
-            if hasattr(self, "imgEmergency"):
-                self.imgEmergency.setVisible(self.blink_state)
-        else:
-            if hasattr(self, "emergency_timer"):
-                self.emergency_timer.stop()
-
     def show_emergency(self):
         """Show red EMERGENCY banner + emergency image on imgsummary."""
         self.emergency()
@@ -282,7 +256,6 @@ class MainApp(QtWidgets.QMainWindow):
         self.close()
     
     def show_camera_error(self, msg):
-        from PyQt5.QtWidgets import QMessageBox
         self._cam_popup = QMessageBox(QMessageBox.Warning, "Camera Error", msg, parent=self)
         self._cam_popup.setStandardButtons(QMessageBox.NoButton)
         self._cam_popup.show()
@@ -292,8 +265,18 @@ class MainApp(QtWidgets.QMainWindow):
             self._cam_popup.close()
             self._cam_popup = None
 
+    def show_camera_text(self, text: str):
+        if text == "camera_disconnect":
+            self.cameratext.setVisible(True)
+            #self.imgcameratext.setVisible(True)
+        elif text == "camera_reconnect" :
+            self.cameratext.setVisible(False)
+            #self.cameratext.setVisible(False)
+
+
     # --- inside class MainApp (UI.py) ---
-    def get_totals_from_summary(self, days_back=365):
+    def get_totals_from_summary(self, days_back=7):
+        
         result = read_log_summary(days_back=days_back)
         return {
             "Chemical Analysis": result.get("Chemical Analysis", 0),
@@ -301,10 +284,9 @@ class MainApp(QtWidgets.QMainWindow):
             "Thickness Measurement": result.get("Thickness Measurement", 0),
         }
         
-    # add
-    # update task total in current year
+    # update task total
     def update_task_totals(self):
-        totals = self.get_totals_from_summary(days_back=365)
+        totals = self.get_totals_from_summary(days_back=7)
         self.Total_chemical.setText("Chemical Analysis : " + str(totals["Chemical Analysis"]))
         self.Total_solder.setText("Solder Ability Test: " + str(totals["Solder Ability Test"]))
         self.Total_thickness.setText("Thickness Measuerment : " + str(totals["Thickness Measurement"]))
@@ -321,9 +303,8 @@ class MainApp(QtWidgets.QMainWindow):
                 self.totalEnt.setText(str(total_pass_year))
             self.refresh_eod_chart(days=7, y_max=40)
         except Exception as e:
-            logger.error(f"update totalEnt (year) failed: {e}", exc_info=True)
+            logger.error(f"update totalEnt (year) failed: {e}")
     
-    # add
     # refresh dashboard
     def refresh_eod_chart(self, days=7, y_max=40):
         try:
@@ -342,7 +323,7 @@ class MainApp(QtWidgets.QMainWindow):
             update_bar_chart(self.GraphEoD, dates, counts, y_max=y_max)
 
         except Exception as e:
-            logger.error(f"refresh_eod_chart failed: {e}", exc_info=True)
+            logger.error(f"refresh_eod_chart failed: {e}")
 
 
 
@@ -369,7 +350,6 @@ class Menu(QtWidgets.QMainWindow):
             self.closebtnSelect.clicked.connect(self.trigger_closeMenu)
             self.closebtnSelect.setVisible(True)
         
-    # add
     def apply_role(self, role: str):
         """Enable only buttons allowed by position."""
         role = role.upper().strip()
@@ -407,6 +387,3 @@ class Menu(QtWidgets.QMainWindow):
         """Handle manual close button click."""
         self.close()
         self.emit_choice("CANCEL")
-
-
-

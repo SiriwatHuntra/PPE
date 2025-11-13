@@ -3,17 +3,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
 # from LogHandler import init_logger
-import json
 
-# Load JSON file
-with open("JsonAsset/alertMail.json", "r", encoding="utf-8") as f:
-    data = json.load(f)
+# logger = init_logger("Mail_Alert")  # uncomment if logging is available
+email_list = ["siriwat.hun@mnf2.rohmthai.com"]
 
-# Extract values
-email_list = data["emails"]                          # list
-SMTPSERVER = data["settings"]["smtpServer"]     # string
-PORT = data["settings"]["port"]                  # int
-SENDER = data["settings"]["sender"]              # string
+SMTPSERVER = "10.28.32.81"
+PORT = 587
+SENDER = "lsi_server_admin@mnf2.rohmthai.com"
+#no pass
 
 
 def mail_to_stakeholder(event, location, detail):

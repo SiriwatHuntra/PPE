@@ -44,12 +44,16 @@ class IOHandler(QtCore.QObject):
         self.reading_active = False
         self.adam = None
         self.adam_ok = False
+        self._adam_watch_running = False
+        self._last_adam_log = 0
+        self._adam_cooldown = 5
         self._emergency_mode = False
         self._door_connected = False       # current known state
         self._last_door_log = 0            # cooldown timer
         self._rfid_connected = False
         self._last_rfid_log = 0
         self._rfid_watch_running = False
+        
 
     # ---------------- RFID ----------------
     # search by Vendor ID and Products ID
@@ -146,7 +150,7 @@ class IOHandler(QtCore.QObject):
                 if now - self._last_rfid_log > cooldown:
                     logger.warning("RFID disconnected.")
                     write_csv_log("Emergency", status="RFID_LOST")
-                    self.summary_text.emit("RFID reconnecting...")
+                    self.summary_text.emit("RFID_disconnect")
                     self._last_rfid_log = now
                 self._rfid_connected = False
                 # stop reading safely
@@ -202,13 +206,9 @@ class IOHandler(QtCore.QObject):
         return None
 
     def server_query(self, raw_emp_code: str):
-
-
         # Zero-pad to length 10, same behavior as your original code
         myid = raw_emp_code
         print(f"This is My ID: {myid}")
-        # if len(myid) < 10:
-        #     myid = myid.zfill(10)
 
         sql = """
         SELECT
@@ -373,12 +373,10 @@ class IOHandler(QtCore.QObject):
         except Exception as e:
             logger.error(f"ADAM connect failed:{e}")
             self.adam_ok = False
-
-        if not self.adam_ok:
-            self.summary_text.emit("ADAM_disconnect")
-
-        if not self._adam_watch_running:
-            threading.Thread(target=self._adam_watch_loop, daemon=True).start()
+            if not self.adam_ok:
+                self.summary_text.emit("ADAM_disconnect")
+            if not self._adam_watch_running:
+                threading.Thread(target=self._adam_watch_loop, daemon=True).start()
 
     def _adam_watch_loop(self):
         """Monitor ADAM connectivity and auto-reconnect with UI notifications."""
@@ -391,6 +389,7 @@ class IOHandler(QtCore.QObject):
                     if ok:
                         self.adam_ok = True
                         logger.info("ADAM reconnected.")
+                        print("ADAM reconnect")
                         self.summary_text.emit("ADAM_reconnect")
                     else:
                         now = time.time()
@@ -422,7 +421,7 @@ class IOHandler(QtCore.QObject):
     def adam_read_di(self, start, count):
         try:
             if not self.adam_ok:
-                self.init_adam()
+                return []
             rr = self.adam.read_discrete_inputs(address=start, count=count)
             if rr.isError():
                 logger.error("ADAM read_discrete_inputs failed")
@@ -433,7 +432,10 @@ class IOHandler(QtCore.QObject):
         except Exception as e:
             logger.error(f"ADAM read exception: {e}")
             self.adam_ok = False
-            self.summary_text.emit("ADAM_disconnect")
+            if not self.adam_ok:
+                self.summary_text.emit("ADAM_disconnect")
+            if not self._adam_watch_running:
+                threading.Thread(target=self._adam_watch_loop, daemon=True).start()
             return []
 
     # ---------------- DOOR ----------------
@@ -469,6 +471,9 @@ class IOHandler(QtCore.QObject):
             while getattr(self, "_emg_running", False):
                 try:
                     bits = self.adam_read_di(self.BASE_DI, 12)
+                    if not bits or len(bits) <= self.DI_EMERGENCY:
+                        QtCore.QThread.msleep(100)
+                        continue
                     val = bool(bits[self.DI_EMERGENCY])
 
                     # If button wired to ISO GND (pressed=0V), invert:

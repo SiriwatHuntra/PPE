@@ -3,6 +3,7 @@ import os, time, cv2
 from PyQt5 import QtCore
 from PyQt5.QtGui import QPixmap, QImage
 from ModelHandler import ModelHandler
+from IO import IOHandler
 from LogHandler import write_csv_log, init_logger, write_db_log
 # from pyMail import mail2all
 
@@ -79,10 +80,8 @@ class LogicController(QtCore.QObject):
         if not self.check_permission(card_id):
             return
 
-    # adjust
     def check_permission(self, card_id: str):
-        """Check if scanned RFID card has access permission."""
-        from IO import IOHandler  # use your existing IO class
+        """Check if scanned RFID card has access permission."""  
         data = IOHandler.load_json("JsonAsset/TestOperator.json")
         if data is None:
             logger.error("Permission data not found.")
@@ -154,7 +153,7 @@ class LogicController(QtCore.QObject):
             "Solder Ability Test": "asset/Reference/Solder_Ability_Test.png",
             "Thickness Measurement": "asset/Reference/Thickness_Measurement.png",
             "Group Lead": "asset/Reference/Group_Lead.png",
-            "Manager": "asset/Reference/ManagerM.png",
+            "Manager": "asset/Reference/Manager.png",
         }
         ref_path = ref_map.get(task_name)
         try:
@@ -178,7 +177,6 @@ class LogicController(QtCore.QObject):
         self.countdown_timer.start()
         self.session_active = True
 
-    # adjust
     def handle_operator_access(self, role: str):
         """When operator has permission — show menu with limited buttons."""
         if hasattr(self.ui, "hide_scan_overlay"):
@@ -192,7 +190,7 @@ class LogicController(QtCore.QObject):
     def handle_no_permission(self):
         """When operator has no permission — show warning."""
         if hasattr(self.ui, "labelIDCard"):
-            self.ui.labelIDCard.setText("Access Denied")
+            self.ui.labelIDCard.setText("OP NO. ยังไม่ได้ลงทะเบียน\nโปรดติดต่อ ETG")
         logger.info("Unauthorized card scanned — denied access.")
         QtCore.QTimer.singleShot(4000, self.ui.show_scan_overlay)
 
@@ -228,6 +226,14 @@ class LogicController(QtCore.QObject):
 
         if not cap_opened:
             logger.warning("Camera appears disconnected.")
+            
+            if hasattr(self.ui, "show_camera_text"):
+                try:
+                    self.ui.show_camera_text("camera_disconnect")
+                except:
+                    pass
+            self._stop_timer()
+            self.model_handler.stop_validation("CAMERA_DISCONNECTED")
 
             # Inform UI (mockup functions to be implemented in integrated UI)
             if hasattr(self.ui, "show_camera_disconnected"):
@@ -246,6 +252,11 @@ class LogicController(QtCore.QObject):
                 if self.io_handler.open_camera(retry=True):
                     logger.info("Camera reconnect successful.")
                     self._reconnect_attempts = 0
+                    if hasattr(self.ui, "show_camera_text"):
+                        try:
+                            self.ui.show_camera_text("camera_reconnect")
+                        except:
+                            pass
                 if hasattr(self.ui, "hide_camera_disconnected"):
                     try:
                         self.ui.hide_camera_disconnected()
@@ -274,7 +285,6 @@ class LogicController(QtCore.QObject):
             return
 
         try:
-            #frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
             resized = cv2.resize(frame, (976, 725))
             self.model_handler.push_frame(resized)
             # --- Save Image every 3 seconds to "dara" folder ---
@@ -325,6 +335,7 @@ class LogicController(QtCore.QObject):
         if hasattr(self.ui, "show_summary"):
             self.ui.show_summary(status)
             # If pass door will open
+            print(status)
             if status == "PASS":                
                 self.io_handler.open_door()
                 QtCore.QTimer.singleShot(4000, self.full_reset)    
@@ -343,12 +354,13 @@ class LogicController(QtCore.QObject):
                                            emp_id=self.ui.current_emp_id)
         
         if status == "TIMEOUT" and self.expected_items:
-            self.ui.MessageTime.setVisible(True)            # add
+            self.ui.MessageTime.setVisible(True)            
             missing_items = {
                 k: v - detected.get(k, 0)
                 for k, v in expected.items()
                 if detected.get(k, 0) < v
             }
+            print(missing_items)
             missing_str = "; ".join(f"{k}:{v}" for k, v in missing_items.items()) if missing_items else "NONE"
         else:
             missing_str = "NONE"
@@ -433,7 +445,7 @@ class LogicController(QtCore.QObject):
     def _post_reset(self):
         """Handle UI cleanup and restart RFID after reset delay."""
         # --- Clear visuals ---
-        for n in ("labelsummary", "imgsummary", "MessageTime", "labelEmergency", "imgEmergency"):
+        for n in ("labelsummary", "imgsummary", "MessageTime", "labelEmergency", "imgEmergency", "cameratext", "imgcameratext"):
             w = getattr(self.ui, n, None)
             if w:
                 w.setVisible(False)
@@ -472,75 +484,57 @@ class LogicController(QtCore.QObject):
         self.io_handler.emergency_cleared.connect(self.handle_emergency_clear)
 
     @QtCore.pyqtSlot()
-    def handle_emergency_trigger(self):
+    def handle_emergency_clear(self):
         logger.warning("EMERGENCY triggered — performing full reset")
         self.emergency_active = True
-
-        # --- Close Task Select window if it's open ---
+        print("off")
         try:
-            if hasattr(self.ui, "menu_window") and self.ui.menu_window.isVisible():
-                self.ui.menu_window.close()
-                logger.info("Task select window closed due to emergency.")
+           if hasattr(self.ui, "menu_window") and self.ui.menu_window.isVisible():
+              self.ui.menu_window.close()
+              logger.info("Task select window closed due to emergency.")
         except Exception as e:
-            logger.error(f"Failed to close menu window: {e}")
+              logger.error(f"Failed to close menu window: {e}")
 
-        # --- Stop all active loops ---
         try:
-            self._stop_timer()
+           self._stop_timer()
         except Exception:
-            pass
-
-        # --- Stop model validation completely ---
+           pass
         try:
-            self.model_handler.stop_validation("EMERGENCY")
-            self.model_handler.reset()
+           self.model_handler.stop_validation("EMERGENCY")
+           self.model_handler.reset()
         except Exception:
-            pass
+           pass
 
-        # --- Stop IO devices ---
         if self.io_handler:
-            try:
-                self.io_handler._emergency_mode = True
-                self.io_handler.stop_rfid()
-                self.io_handler.release_camera()
-                self.io_handler._emg_open()
-            except Exception:
-                pass
+           try:
+              self.io_handler._emergency_mode = True
+              self.io_handler.stop_rfid()
+              self.io_handler.release_camera()
+              self.io_handler._emg_open()
+           except Exception:
+              pass
 
-        # --- Reset UI immediately ---
         if hasattr(self.ui, "show_emergency"):
-            self.ui.show_emergency()
-        # add
-        if hasattr(self.ui, "blink_emergency"):
-            self.ui.blink_emergency()
-
-        try: 
-            # mail2all("Emergency", "PPE detection", "Emergency button pushed")
-            print("mock up mail send")
-        except:
-            logger.info("Fail to active email sender")
+           self.ui.show_emergency()
 
     @QtCore.pyqtSlot()
-    def handle_emergency_clear(self):
-        if not self.emergency_active: 
-            logger.debug("Ignore redundant emergency_clear signal.")
-            return
+    def handle_emergency_trigger(self):
+        if not self.emergency_active:
+           logger.debug("Ignore redundant emergency_clear signal.")
+           return
         logger.info("Emergency cleared — restarting system")
         self.emergency_active = False
-
+        print("emg")
         if self.io_handler:
-            try:
-                self.io_handler._emergency_mode = False
-                #self.io_handler.close_door()
-                self.io_handler.start_rfid_thread()
-            except Exception:
-                pass
+           try:
+              self.io_handler._emergency_mode = False
+              self.io_handler.close_door()
+              self.io_handler.start_rfid_thread()
+           except Exception:
+              pass
 
-        # Bring UI back to idle (same as startup)
-        # if self.session_active or getattr(self.ui, "labelsummary", None):
-        #     self.full_reset()
         if hasattr(self.ui, "emergency_timer"):
-            self.ui.emergency_timer.stop()
+           self.ui.emergency_timer.stop()
         if hasattr(self.ui, "hide_emergency"):
-            self.ui.hide_emergency()
-        QtCore.QTimer.singleShot(200, self.ui.show_scan_overlay)
+           self.ui.hide_emergency()
+        QtCore.QTimer.singleShot(0, self.ui.show_scan_overlay)

@@ -5,5 +5,6 @@
     "Cap": 1, 
     "Carbon_Mask": 1, 
     "Clothes": 1, 
-    "ID_Card": 1
+    "ID_Card": 1,
+    "OSL" : 1
 }
