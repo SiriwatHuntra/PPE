@@ -90,11 +90,11 @@ class MainApp(QtWidgets.QMainWindow):
         try:
             if hasattr(self, "DateTim"):
                 now = QtCore.QDateTime.currentDateTime()
+                year = now.date().year()
                 if hasattr(self, "DateTim") and isinstance(self.DateTim, QtWidgets.QDateTimeEdit):
                     self.DateTim.setDateTime(now)
                 if not hasattr(self, "_last_year") or self._last_year != year:
                     self._last_year = year
-                    self.update_task_totals()
                     self.update_task_totals()
         except Exception as e:
             logger.error(f"_update_datetime failed: {e}", exc_info=True)
