@@ -2,101 +2,84 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
+# from LogHandler import init_logger
 import json
-from pathlib import Path
 
-# Load Config (alertMail.json)
-CONFIG_PATH = Path(__file__).parent / "alertMail.json"
+# Load JSON file
+with open("JsonAsset/alertMail.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
 
-with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-    config = json.load(f)
-
-EMAIL_CONFIG = config["settings"]
-EMAIL_LIST = [item for item in config["emails"] if item["enabled"]]
-
-SMTP_SERVER = EMAIL_CONFIG["smtpServer"]
-PORT = EMAIL_CONFIG["port"]
-SENDER = EMAIL_CONFIG["sender"]
-USE_TLS = EMAIL_CONFIG.get("useTLS", True)
+# Extract values
+email_list = data["emails"]                          # list
+SMTPSERVER = data["settings"]["smtpServer"]     # string
+PORT = data["settings"]["port"]                  # int
+SENDER = data["settings"]["sender"]              # string
 
 
-# Send alert to all emails defined inside alertMail.json
 def mail_to_stakeholder(event, location, detail):
-    for entry in EMAIL_LIST:
+    """
+    Send the same emergency alert to all stakeholders.
+    """
+    for receiver in email_list:
         send_emergency_email(
-            smtp_server=SMTP_SERVER,
+            smtp_server=SMTPSERVER,
             port=PORT,
             sender_email=SENDER,
-            receiver=entry["recipient"],
-            subject=entry["subject"],
-            body=entry["body"],
-            priority=entry["priority"],
+            receiver=receiver,
             event_name=event,
             location=location,
             detail=detail
         )
 
-
-# -------------------------------------------------------
-# Single email send
-# -------------------------------------------------------
 def send_emergency_email(
     smtp_server: str,
     port: int,
     sender_email: str,
     receiver: str,
-    subject: str,
-    body: str,
-    priority: str,
-    event_name: str,
-    location: str,
-    detail: str,
+    event_name: str = "Emergency Alert",
+    location: str = "Main Station",
+    detail: str = "",
 ):
+    """
+    Send email alert to managers when emergency is ACTIVATED.
+    """
     try:
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        subject = f"🚨 Emergency Activated — {event_name} at {location}"
 
-        final_subject = f"🚨 {subject} — {event_name} at {location}"
-        final_body = f"""
+        html = f"""
         <html>
         <body style="font-family:Segoe UI,Arial,sans-serif; color:#222;">
             <div style="border-left:5px solid #d32f2f; padding:14px 20px;">
-                <h2 style="color:#d32f2f;">⚠️ {priority.upper()} Alert</h2>
+                <h2 style="color:#d32f2f;">⚠️ Emergency Activated</h2>
                 <p><b>Location:</b> {location}</p>
                 <p><b>Event:</b> {event_name}</p>
                 <p><b>Triggered at:</b> {now}</p>
-                <p><b>Details:</b> {detail or body}</p>
+                <p><b>Details:</b> {detail or 'No further information provided.'}</p>
             </div>
             <br>
             <p style="font-size:13px; color:#777;">
-                This is an automatic alert from the safety monitoring system.
+                This is an automatic alert from the safety monitoring system.<br>
+                Please take immediate action and verify system condition.
             </p>
         </body>
         </html>
         """
 
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = final_subject
+        msg["Subject"] = subject
         msg["From"] = sender_email
-        msg["To"] = receiver
-        msg.attach(MIMEText(final_body, "html"))
+        msg["To"] = receiver  # just a single email string, not joined
+        msg.attach(MIMEText(html, "html"))
 
         with smtplib.SMTP(smtp_server, port) as server:
-            if USE_TLS:
-                server.starttls()
-
-            # login (empty pw supported on your environment)
-            server.login(sender_email, "")
-
+            server.starttls()
+            server.login(sender_email, "")  # No password
             server.sendmail(sender_email, [receiver], msg.as_string())
 
-        print(f"[OK] Email sent → {receiver}")
+        print(f"Emergency email sent to {receiver}")
 
     except Exception as e:
-        print(f"[ERROR] Failed to send email → {receiver}: {e}")
+        print(f"Failed to send emergency email: {e}")
 
-
-# -------------------------------------------------------
-# Manual test
-# -------------------------------------------------------
-if __name__ == "__main__":
-    mail_to_stakeholder("Testing", "Workplace", "Testing mailer function")
+mail_to_stakeholder("Testing", "Workplace", "Tesing mailer function")
