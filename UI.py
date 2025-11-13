@@ -4,8 +4,8 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPixmapItem
 
 from Logic import LogicController
-from LogHandler import init_logger
 from chart import init_bar_chart, update_bar_chart
+from LogHandler import init_logger, read_log_summary, read_db_total_current_year, read_db_entry_date
 
 logger = init_logger("Interface    ")
 
@@ -314,7 +314,6 @@ class MainApp(QtWidgets.QMainWindow):
 
     # --- inside class MainApp (UI.py) ---
     def get_totals_from_summary(self, days_back=365):
-        from LogHandler import read_log_summary
         result = read_log_summary(days_back=days_back)
         return {
             "Chemical Analysis": result.get("Chemical Analysis", 0),
@@ -331,7 +330,6 @@ class MainApp(QtWidgets.QMainWindow):
         self.Total_thickness.setText("Thickness Measuerment : " + str(totals["Thickness Measurement"]))
 
         try:
-            from LogHandler import read_db_total_current_year
             total_pass_year = read_db_total_current_year(
                 server="172.16.0.102",
                 user="system",
@@ -349,7 +347,6 @@ class MainApp(QtWidgets.QMainWindow):
     # refresh dashboard
     def refresh_eod_chart(self, days=7, y_max=40):
         try:
-            from LogHandler import read_db_entry_date
             rows = read_db_entry_date(
                 server="172.16.0.102",
                 user="system",
