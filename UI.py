@@ -90,13 +90,14 @@ class MainApp(QtWidgets.QMainWindow):
         try:
             if hasattr(self, "DateTim"):
                 now = QtCore.QDateTime.currentDateTime()
-                self.DateTim.setDateTime(now)
-                year = now.date().year()
-                if getattr(self, "_last_year", None) != year:
+                if hasattr(self, "DateTim") and isinstance(self.DateTim, QtWidgets.QDateTimeEdit):
+                    self.DateTim.setDateTime(now)
+                if not hasattr(self, "_last_year") or self._last_year != year:
                     self._last_year = year
                     self.update_task_totals()
+                    self.update_task_totals()
         except Exception as e:
-            logger.error(f"_update_datetime failed: {e}")
+            logger.error(f"_update_datetime failed: {e}", exc_info=True)
 
     # --- UI helpers to react to logic events ---
     # adjust
@@ -341,7 +342,7 @@ class MainApp(QtWidgets.QMainWindow):
                 self.totalEnt.setText(str(total_pass_year))
             self.refresh_eod_chart(days=7, y_max=40)
         except Exception as e:
-            logger.error(f"update totalEnt (year) failed: {e}")
+            logger.error(f"update totalEnt (year) failed: {e}", exc_info=True)
     
     # add
     # refresh dashboard
@@ -362,7 +363,7 @@ class MainApp(QtWidgets.QMainWindow):
             update_bar_chart(self.GraphEoD, dates, counts, y_max=y_max)
 
         except Exception as e:
-            logger.error(f"refresh_eod_chart failed: {e}")
+            logger.error(f"refresh_eod_chart failed: {e}", exc_info=True)
 
 
 
