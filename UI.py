@@ -95,8 +95,8 @@ class MainApp(QtWidgets.QMainWindow):
                 if getattr(self, "_last_year", None) != year:
                     self._last_year = year
                     self.update_task_totals()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"_update_datetime failed: {e}")
 
     # --- UI helpers to react to logic events ---
     # adjust
