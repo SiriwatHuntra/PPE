@@ -264,27 +264,6 @@ class MainApp(QtWidgets.QMainWindow):
             if hasattr(self, "emergency_timer"):
                 self.emergency_timer.stop()
 
-    # def show_emergency(self):
-    #     """Show red EMERGENCY banner + emergency image on imgsummary."""
-    #     self.emergency()
-    #     if hasattr(self, "labelEmergency"):
-    #         self.labelEmergency.setVisible(True)
-    #         self.labelEmergency.raise_()
-    #     if hasattr(self, "imgEmergency"):
-    #         self.imgEmergency.raise_()
-    #         self.imgEmergency.setVisible(True)
-
-    #     if hasattr(self, "hide_scan_overlay"):
-    #         self.hide_scan_overlay()
-    #     if hasattr(self, "labelRFID"): 
-    #         self.labelRFID.setVisible(False)
-    #     if hasattr(self, "imgRFID"):   
-    #         self.imgRFID.setVisible(False)
-    #     if hasattr(self, "labelADAM"): 
-    #         self.labelADAM.setVisible(False)
-    #     if hasattr(self, "imgADAM"):   
-    #         self.imgADAM.setVisible(False)
-
     def show_emergency(self):
         """Show red EMERGENCY banner + emergency image on imgsummary."""
         self.emergency()
