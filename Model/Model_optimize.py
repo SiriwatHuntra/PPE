@@ -466,5 +466,5 @@ def detect_objects(image_bgr: np.ndarray,
 
 #####   EXE    ######
 if __name__ == "__main__":
-    task_id = 3
+    task_id = 5
 
