@@ -382,7 +382,7 @@ class Menu(QtWidgets.QMainWindow):
         #Disable all first, Set inviible
         for b in btns.values():
             b.setEnabled(False)
-            b.setVisible(False)
+            b.setVisible(True)
 
         # Enable for position
         if role == "M":
