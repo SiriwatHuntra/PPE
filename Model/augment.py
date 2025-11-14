@@ -24,8 +24,6 @@ class ImageEnhancer:
 
 
     def apply_mask(self, frame, mask):
-        frame = cv2.resize(frame, (976, 725))
-        frame = cv2.bitwise_and(frame, frame, mask=mask)  # Apply mask
         return cv2.bitwise_and(frame, frame, mask=mask)
 
 
