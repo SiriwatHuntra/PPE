@@ -25,9 +25,10 @@ CONF_THRES = 0.60
 IOU_THRES  = 0.7  # NMS IoU
 CLASS_NAMES = {0: 'Arm', 1: 'Cap', 2: 'Carbon_Mask', 3: 'Clothes', 4: 'Face_Shield', 5: 'Gas_Mask', 6: 'Glove', 7: 'ID_Card', 8: 'Long_Glove', 9: 'OSL', 10: 'Safety_Shoe', 11:'Yellow_Jacket'}
 FILE_MAP = {1: "Chemical.json", 2: "Solder.json", 3: "Thickness.json", 4: "GroupL.json", 5: "Manager.json"}
+NOT_ALLOWED = ["Arm"]
 
 _pre_alloc = {"blob": None, "size": (IMG_SIZE, IMG_SIZE)}
-enhancer = ImageEnhancer(enable_edgeboost=True)
+enhancer = ImageEnhancer(enable_color=True, enable_sharpen=True, enable_apply_mask=True)
 
 with open('JsonAsset/_map.json', 'r') as f:
     TARGET_REF = json.load(f)
@@ -355,12 +356,15 @@ def detect_objects(image_bgr: np.ndarray,
     Run ONNX YOLO detection and annotate image with bounding boxes.
     Returns (Counter, annotated_image)
     """
+    image_bgr = cv.resize(image_bgr, (976, 725))
     orig = image_bgr  # keep original reference for later
     H0, W0 = orig.shape[:2]
 
     # --- Preprocess ---
-    orig = enhancer.process(orig)
-    img, scale, pad_x, pad_y = letterbox(orig, IMG_SIZE)
+    
+    aug = enhancer.process(image_bgr)
+
+    img, scale, pad_x, pad_y = letterbox(aug, IMG_SIZE)
     blob = cv.dnn.blobFromImage(
         img, scalefactor=1/255.0, size=(IMG_SIZE, IMG_SIZE),
         mean=(0, 0, 0), swapRB=True, crop=False
@@ -428,10 +432,18 @@ def detect_objects(image_bgr: np.ndarray,
     if keep.size == 0:
         return Counter(), orig.copy()
 
-    boxes_kept = boxes_xyxy[keep].astype(int)
-    cls_kept = cls_ids[keep]
+    # Apply NMS
+    boxes_kept  = boxes_xyxy[keep].astype(int)
+    cls_kept    = cls_ids[keep]
     scores_kept = scores[keep]
-    labels = np.vectorize(CLASS_NAMES.get)(cls_kept, cls_kept.astype(str))
+    labels      = np.vectorize(CLASS_NAMES.get)(cls_kept, cls_kept.astype(str))
+
+    # --- Hard filter classes ---
+    mask = np.array([lbl not in NOT_ALLOWED for lbl in labels])
+    boxes_kept  = boxes_kept[mask]
+    cls_kept    = cls_kept[mask]
+    scores_kept = scores_kept[mask]
+    labels      = labels[mask]
     
     vis = orig if equipment_list is None else orig.copy()
     
@@ -443,11 +455,8 @@ def detect_objects(image_bgr: np.ndarray,
     # --- Label mapping with vectorized IoU ---
     label_list = []
 
-    NOT_ALLOWED = ["Arm"]
 
     for target_name, ref_list in TARGET_REF.items():
-        if target_name in NOT_ALLOWED:
-            continue
         target_boxes = boxes_kept[labels == target_name]
         if target_boxes.size == 0:
             continue
