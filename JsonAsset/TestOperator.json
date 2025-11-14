@@ -28,25 +28,19 @@
 		"EmpNo": "001086",
 		"Name": "AMNAD" ,
 		"Surname": "CHUAYSONG",
-		"Position": "M"  
+		"Position": "GL"  
 	},
 	{
 		"EmpNo": "001111",
 		"Name": "MANOCH" ,
 		"Surname": "BANGLUAM",
-		"Position": "M" 
+		"Position": "GL" 
 	},
 	{
 		"EmpNo": "001113",
 		"Name": "SOMKID" ,
 		"Surname": "PHU-NGAMNIL",
-		"Position": "M"  
-	},
-	{
-		"EmpNo": "001090",
-		"Name": "VEERASAK" ,
-		"Surname": "TIPPARAT",
-		"Position": "M" 
+		"Position": "GL"  
 	},
 	{
 		"EmpNo": "001655",
@@ -76,6 +70,6 @@
 		"EmpNo": "011294",
 		"Name": "ATIPAT" ,
 		"Surname": "THARAKIJ",
-		"Position": "O"  
+		"Position": "M"  
 	}		
 ]

@@ -1579,9 +1579,6 @@ padding-top:380px;</string>
       <property name="text">
        <string/>
       </property>
-      <property name="pixmap">
-       <pixmap>Image/connect.png</pixmap>
-      </property>
       <property name="scaledContents">
        <bool>true</bool>
       </property>
@@ -1597,7 +1594,7 @@ padding-top:380px;</string>
       </property>
       <property name="font">
        <font>
-        <pointsize>60</pointsize>
+        <pointsize>50</pointsize>
         <weight>75</weight>
         <bold>true</bold>
        </font>
@@ -1609,6 +1606,87 @@ padding-top:580px; </string>
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="closebutton">
+      <property name="geometry">
+       <rect>
+        <x>1820</x>
+        <y>0</y>
+        <width>71</width>
+        <height>71</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>50</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background-color:none;</string>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>Image/cross.png</normaloff>Image/cross.png</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>65</width>
+        <height>65</height>
+       </size>
+      </property>
+      <property name="flat">
+       <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelADAM">
+      <property name="geometry">
+       <rect>
+        <x>730</x>
+        <y>950</y>
+        <width>1894</width>
+        <height>1011</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>100</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background-color: none;
+color: rgb(255, 255, 255);
+padding-top:380px;</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QLabel" name="imgADAM">
+      <property name="geometry">
+       <rect>
+        <x>1030</x>
+        <y>540</y>
+        <width>571</width>
+        <height>481</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background-color:none;
+</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="scaledContents">
+       <bool>true</bool>
       </property>
      </widget>
      <zorder>Countnum</zorder>
@@ -1639,8 +1717,11 @@ padding-top:580px; </string>
      <zorder>GraphEoD</zorder>
      <zorder>labelRFID</zorder>
      <zorder>imgRFID</zorder>
+     <zorder>labelADAM</zorder>
+     <zorder>imgADAM</zorder>
      <zorder>labelEmergency</zorder>
      <zorder>imgEmergency</zorder>
+     <zorder>closebutton</zorder>
     </widget>
    </widget>
   </widget>
