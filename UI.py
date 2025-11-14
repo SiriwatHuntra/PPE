@@ -361,20 +361,40 @@ class Menu(QtWidgets.QMainWindow):
             "Manager": self.btnMGR,
         }
 
-        # Enable first
+            # UI styling (apply once)
+        for b in btns.values():
+            b.setStyleSheet("""
+            QPushButton {
+                color: #C9DFEE;
+                background-color: #0A84FF;
+                border-radius: 12px;
+                text-align: left;
+                padding-left: 170px;
+            }
+
+            QPushButton:disabled {
+                background-color: #2A2A2A;
+                color: #808080;
+                border: 2px solid #444;
+            }
+            """)
+
+        #Disable all first, Set inviible
         for b in btns.values():
             b.setEnabled(False)
+            b.setVisible(False)
 
         # Enable for position
         if role == "M":
             btns["Manager"].setEnabled(True)
+
         elif role == "GL":
             btns["Group Lead"].setEnabled(True)
-        elif role == "O":
-            btns["Chemical Analysis"].setEnabled(True)
-            btns["Thickness Measurement"].setEnabled(True)
-            btns["Solder Ability Test"].setEnabled(True)
 
+        elif role == "O":
+            for key in ["Chemical Analysis", "Solder Ability Test", "Thickness Measurement"]:
+                btns[key].setEnabled(True)
+                
     def emit_choice(self, choice: str):
         self.choice_made.emit(choice)
         self.close()
@@ -387,3 +407,5 @@ class Menu(QtWidgets.QMainWindow):
         """Handle manual close button click."""
         self.close()
         self.emit_choice("CANCEL")
+
+
