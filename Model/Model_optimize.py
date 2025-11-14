@@ -357,14 +357,12 @@ def detect_objects(image_bgr: np.ndarray,
     Returns (Counter, annotated_image)
     """
     image_bgr = cv.resize(image_bgr, (976, 725))
-    orig = image_bgr.copy()  # keep original reference for later
+    orig = image_bgr  # keep original reference for later
     H0, W0 = orig.shape[:2]
 
     # --- Preprocess ---
     
     aug = enhancer.process(image_bgr)
-    if aug is None:
-        aug = image_bgr.c
 
     img, scale, pad_x, pad_y = letterbox(aug, IMG_SIZE)
     blob = cv.dnn.blobFromImage(
@@ -473,7 +471,7 @@ def detect_objects(image_bgr: np.ndarray,
             matched = (ious >= IOU_THRESHOLD).any(axis=1)
             label_list.extend(np.array([target_name] * np.count_nonzero(matched)))
 
-    return Counter(label_list), aug
+    return Counter(label_list), vis
 
 #####   EXE    ######
 if __name__ == "__main__":

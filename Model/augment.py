@@ -2,11 +2,10 @@ import cv2
 import numpy as np
 
 class ImageEnhancer:
-    def __init__(self, enable_color=True, enable_edge=False, enable_sharpen=True, enable_edgeboost=False):
+    def __init__(self, enable_color=True, enable_sharpen=True, enable_apply_mask=True):
         self.enable_color = enable_color
-        self.enable_edge = enable_edge
         self.enable_sharpen = enable_sharpen
-        self.enable_edgeboost = enable_edgeboost
+        self.eneapply_mask = enable_apply_mask
 
     # ---- existing functions ----
     def enhance_color(self, frame):
@@ -17,47 +16,38 @@ class ImageEnhancer:
         return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 
-    def enhance_edges(self, frame, weight=0.7):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 80, 150)
-        edges_colored = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-        return cv2.addWeighted(frame, 1.0, edges_colored, weight, 0)
-
     def sharpen(self, frame):
         kernel = np.array([[0, -1, 0],
                            [-1, 5, -1],
                            [0, -1, 0]])
         return cv2.filter2D(frame, -1, kernel)
 
-    # ---- new plugin: edge contrast booster ----
-    def edge_contrast_boost(self, frame, edge_weight=1.0, detail_strength=1.0):
-        # single grayscale conversion, cheaper filters
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 100, 200)
-        blur = cv2.blur(frame, (3,3))                # faster than Gaussian
-        detail = cv2.addWeighted(frame, 1 + detail_strength, blur, -detail_strength, 0)
-        edges_bgr = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-        return cv2.addWeighted(detail, 1, edges_bgr, edge_weight, 0)
+
+    def apply_mask(self, frame, mask):
+        frame = cv2.resize(frame, (976, 725))
+        frame = cv2.bitwise_and(frame, frame, mask=mask)  # Apply mask
+        return cv2.bitwise_and(frame, frame, mask=mask)
 
 
     # ---- main processing ----
     def process(self, frame):
+        if self.eneapply_mask:
+            frame = self.apply_mask(frame, mask = cv2.imread('asset/Masking.png', 0))  # Load as grayscale, mask image 976x725
         if self.enable_color:
             frame = self.enhance_color(frame)
-        if self.enable_edge:
-            frame = self.enhance_edges(frame)
         if self.enable_sharpen:
             frame = self.sharpen(frame)
-        if self.enable_edgeboost:
-            frame = self.edge_contrast_boost(frame)
         return frame
 
 def run_cam_test():
     """Run webcam test for live enhancement"""
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("❌ Cannot open camera")
+        print("Cannot open camera")
         return
+
+    #appliy masking
+    
 
     enhancer = ImageEnhancer()
     use_enhance = True
@@ -65,6 +55,7 @@ def run_cam_test():
 
     while True:
         ret, frame = cap.read()
+        frame = cv2.resize(frame, (976, 725))
         if not ret:
             break
 
