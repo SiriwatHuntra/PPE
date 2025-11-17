@@ -349,10 +349,12 @@ class Menu(QtWidgets.QMainWindow):
         if hasattr(self, "closebtnSelect"):
             self.closebtnSelect.clicked.connect(self.trigger_closeMenu)
             self.closebtnSelect.setVisible(True)
-        
+            
     def apply_role(self, role: str):
         """Enable only buttons allowed by position."""
         role = role.upper().strip()
+
+        # Button references
         btns = {
             "Chemical Analysis": self.btnCA,
             "Solder Ability Test": self.btnSAT,
@@ -361,38 +363,37 @@ class Menu(QtWidgets.QMainWindow):
             "Manager": self.btnMGR,
         }
 
-            # UI styling (apply once)
-        for b in btns.values():
-            b.setStyleSheet("""
-            QPushButton {
-                color: #C9DFEE;
-                background-color: #0A84FF;
-                border-radius: 12px;
-                text-align: left;
-                padding-left: 170px;
-            }
+        # Role-to-button mapping
+        role_map = {
+            "M": ["Manager"],
+            "GL": ["Group Lead"],
+            "O": ["Chemical Analysis", "Solder Ability Test", "Thickness Measurement"],
+            "DEV": ["Chemical Analysis", "Solder Ability Test", "Thickness Measurement", "Group Lead", "Manager"],
+        }
 
-            QPushButton:disabled {
-                background-color: #2A2A2A;
-                color: #808080;
-                border: 2px solid #444;
-            }
-            """)
+        # Apply styling once
+        style = """
+        QPushButton {
+            color: #C9DFEE;
+            background-color: #0A84FF;
+            border-radius: 12px;
+            text-align: left;
+            padding-left: 170px;
+        }
+        QPushButton:disabled {
+            background-color: #2A2A2A;
+            color: #808080;
+            border: 2px solid #444;
+        }
+        """
+        for btn in btns.values():
+            btn.setStyleSheet(style)
+            btn.setEnabled(False)
+            btn.setVisible(True)
 
-        #Disable all first, Set inviible
-        for b in btns.values():
-            b.setEnabled(False)
-            b.setVisible(True)
-
-        # Enable for position
-        if role == "M":
-            btns["Manager"].setEnabled(True)
-
-        elif role == "GL":
-            btns["Group Lead"].setEnabled(True)
-
-        elif role == "O":
-            for key in ["Chemical Analysis", "Solder Ability Test", "Thickness Measurement"]:
+        # Enable buttons based on role
+        for key in role_map.get(role, []):
+            if key in btns:
                 btns[key].setEnabled(True)
                 
     def emit_choice(self, choice: str):
