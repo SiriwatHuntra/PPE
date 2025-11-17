@@ -438,13 +438,22 @@ def detect_objects(image_bgr: np.ndarray,
     scores_kept = scores[keep]
     labels      = np.vectorize(CLASS_NAMES.get)(cls_kept, cls_kept.astype(str))
 
-    # --- Hard filter classes ---
-    mask = np.array([lbl not in NOT_ALLOWED for lbl in labels])
+    # Build string labels
+    labels = np.array(labels, dtype=str)
+
+
+    # --- Hard filter to allowed PPE classes ---
+    mask = ~np.isin(labels, NOT_ALLOWED)
+
     boxes_kept  = boxes_kept[mask]
     cls_kept    = cls_kept[mask]
     scores_kept = scores_kept[mask]
     labels      = labels[mask]
+
+    if boxes_kept.size == 0:
+        return Counter(), orig.copy()
     
+    # --- Visualization ---
     vis = orig if equipment_list is None else orig.copy()
     
     for box, label, conf in zip(boxes_kept, labels, scores_kept):
