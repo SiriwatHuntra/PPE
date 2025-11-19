@@ -319,6 +319,7 @@ class IOHandler(QtCore.QObject):
         if not self.cap or not self.cap.isOpened():
             return None
         ok, frame = self.cap.read()
+        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
         return frame if ok else None
 
     def release_camera(self):
