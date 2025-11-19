@@ -23,7 +23,7 @@ MODEL_PATH = "Model/yolo_XI.onnx"
 IMG_SIZE   = 640
 CONF_THRES = 0.60   
 IOU_THRES  = 0.7  # NMS IoU
-CLASS_NAMES = {0: 'Arm', 1: 'Cap', 2: 'Carbon_Mask', 3: 'Clothes', 4: 'Face_Shield', 5: 'Gas_Mask', 6: 'Glove', 7: 'ID_Card', 8: 'Long_Glove', 9: 'OSL', 10: 'Safety_Shoe', 11:'Yellow_Jacket'}
+CLASS_NAMES = {0: 'Cap', 1: 'Carbon_Mask', 2: 'Clothes', 3: 'Face_Shield', 4: 'Gas_Mask', 5: 'Glove', 6: 'ID_Card', 7: 'Long_Glove', 8: 'OSL', 9: 'Safety_Shoe', 10:'Yellow_Jacket'}
 FILE_MAP = {1: "Chemical.json", 2: "Solder.json", 3: "Thickness.json", 4: "GroupL.json", 5: "Manager.json"}
 NOT_ALLOWED = ["Arm"]
 
