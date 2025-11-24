@@ -285,9 +285,9 @@ class LogicController(QtCore.QObject):
             return
 
         try:
-            resized = cv2.resize(frame, (976, 725))
+            resized = cv2.resize(frame, (980, 880))
             self.model_handler.push_frame(resized)
-            # --- Save Image every 3 seconds to "dara" folder ---
+            # --- Save Image every 3 seconds to "data" folder ---
             current_time = time.time()
             if current_time - self.last_image_save_time >= self.image_save_interval:
                 try:
