@@ -313,7 +313,11 @@ class LogicController(QtCore.QObject):
             bytes_per_line = ch * w
             qt_img = QImage(rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qt_img)
-            self.ui.pixmap_item.setPixmap(pixmap)
+
+            #pixmap resixed
+            pixmap_resized = pixmap.scaled(980, 880, QtCore.Qt.KeepAspectRatio)        
+            self.ui.pixmap_item.setPixmap(pixmap_resized)
+
         except Exception as e:
             logger.error(f"Display update failed: {e}")
 
