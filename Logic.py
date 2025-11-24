@@ -285,14 +285,14 @@ class LogicController(QtCore.QObject):
             return
 
         try:
-            resized = cv2.resize(frame, (980, 880))
-            self.model_handler.push_frame(resized)
+            # resized = cv2.resize(frame, (980, 880)) # <-- REMOVED: Don't resize here. Let the model see the original frame.
+            self.model_handler.push_frame(frame) # <-- CHANGED: Push the original frame.
             # --- Save Image every 3 seconds to "data" folder ---
             current_time = time.time()
             if current_time - self.last_image_save_time >= self.image_save_interval:
                 try:
                     # Use IOHandler"z existing function (it auto-creates folder)
-                    self.io_handler.save_image_direct(resized,folder_prefix ="data",emp_id=getattr(self.ui, "current_emp_id", "Unknown"))
+                    self.io_handler.save_image_direct(frame,folder_prefix ="data",emp_id=getattr(self.ui, "current_emp_id", "Unknown"))
                     self.last_image_save_time = current_time
                 except Exception as e:
                     logger.error(f"Interval image save failed: {e}")
