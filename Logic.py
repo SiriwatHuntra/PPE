@@ -308,6 +308,7 @@ class LogicController(QtCore.QObject):
 
         # --- Update preview ---
         try:
+            annotated_img = cv2.resize(annotated_img, (980, 880))  # Resize for consistent display size
             rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb.shape
             bytes_per_line = ch * w
@@ -315,8 +316,7 @@ class LogicController(QtCore.QObject):
             pixmap = QPixmap.fromImage(qt_img)
 
             #pixmap resixed
-            pixmap_resized = pixmap.scaled(980, 880, QtCore.Qt.KeepAspectRatio)        
-            self.ui.pixmap_item.setPixmap(pixmap_resized)
+            self.ui.pixmap_item.setPixmap(pixmap)
 
         except Exception as e:
             logger.error(f"Display update failed: {e}")
