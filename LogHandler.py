@@ -452,6 +452,7 @@ def read_db_summary(
     time_frame: str = "today",  # 'today', 'month', or 'days_back=N'
     group_by_date: bool = False
 ):
+
     """
     Reads summary counts from DB based on time frame, status, and grouping.
 
@@ -532,42 +533,8 @@ def read_db_summary(
             
     return result
 
-def read_db_entry_date(
-    server: str,
-    user: str,
-    password: str,
-    database: str,
-    table: str = "[DBx].[dbo].[PL_PPE]",
-    days: int = 7
-):
-    """
-    Return list of (date, count) for last `days` days with status='PASS'
-    """
-    conn = None
-    try:
-        conn = pymssql.connect(host=server, user=user, password=password, database=database)
-        cur = conn.cursor()
-        sql = f"""
-        SELECT CONVERT(date, record_at) AS date, COUNT(*) AS cnt
-        FROM {table}
-        WHERE status = 'PASS'
-          AND record_at >= DATEADD(DAY, -%s, GETDATE())
-        GROUP BY CONVERT(date, record_at)
-        ORDER BY date ASC
-        """
-        cur.execute(sql, (days,))
-        rows = cur.fetchall()
-        return [(r[0], int(r[1])) for r in rows]
-    except Exception as e:
-        # logging.error(f"[DB_READ] read_db_entry_date failed: {e}")
-        return []
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
-
+# NOTE: These functions assume the existence of the generalized _execute_db_query()
+# and the read_db_summary() function in the current scope.
 
 def read_db_total_today(
     server: str,
@@ -577,35 +544,23 @@ def read_db_total_today(
     table: str = "[DBx].[dbo].[PL_PPE]"
 ) -> int:
     """
-    Return total count of PASS records for TODAY only.
+    Replicates the original read_db_total_today by calling read_db_summary.
+    Returns the total count of 'PASS' records for TODAY.
     """
-    conn = None
-    try:
-        today = date.today()
-        start = f"{today.year}-{today.month:02d}-{today.day:02d} 00:00:00"
-        end = f"{today.year}-{today.month:02d}-{today.day:02d} 23:59:59"
+    # 1. Call generalized function for PASS status today
+    result = read_db_summary(
+        server=server,
+        user=user,
+        password=password,
+        database=database,
+        table=table,
+        statuses=["PASS"],
+        time_frame="today"
+    )
+    # 2. Extract and return the integer count
+    return result.get("PASS", 0)
 
-        conn = pymssql.connect(host=server, user=user, password=password, database=database, login_timeout=3)
-        cur = conn.cursor()
-        sql = f"""
-        SELECT COUNT(*) FROM {table}
-        WHERE [status] = 'PASS'
-          AND [record_at] >= %s AND [record_at] <= %s
-        """
-        cur.execute(sql, (start, end))
-        row = cur.fetchone()
-        count = int(row[0] if row and row[0] is not None else 0)
-        # logging.info(f"[DB_READ] Total PASS today ({today}): {count}")
-        return count
-    except Exception as e:
-        # logging.error(f"[DB_READ] read_db_total_today failed: {e}")
-        return 0
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
+# --------------------------------------------------------------------------------
 
 def read_db_total_month(
     server: str,
@@ -615,45 +570,23 @@ def read_db_total_month(
     table: str = "[DBx].[dbo].[PL_PPE]"
 ) -> int:
     """
-    Return total count of PASS records for CURRENT MONTH only (from day 1 to last day).
+    Replicates the original read_db_total_month by calling read_db_summary.
+    Returns the total count of 'PASS' records for the CURRENT MONTH.
     """
-    conn = None
-    try:
-        today = date.today()
-        first_day = date(today.year, today.month, 1)
-        start = f"{first_day.year}-{first_day.month:02d}-01 00:00:00"
+    # 1. Call generalized function for PASS status this month
+    result = read_db_summary(
+        server=server,
+        user=user,
+        password=password,
+        database=database,
+        table=table,
+        statuses=["PASS"],
+        time_frame="month"
+    )
+    # 2. Extract and return the integer count
+    return result.get("PASS", 0)
 
-        conn = pymssql.connect(
-            host=server, 
-            user=user, 
-            password=password, 
-            database=database, 
-            login_timeout=3
-        )
-        cur = conn.cursor()
-
-        sql = f"""
-        SELECT COUNT(*) FROM {table}
-        WHERE [status] = 'PASS'
-          AND [record_at] >= %s 
-          AND [record_at] < DATEADD(MONTH, 1, %s)
-        """
-        cur.execute(sql, (start, start))
-        row = cur.fetchone()
-        count = int(row[0] if row and row[0] is not None else 0)
-        
-        logging.info(f"[DB_READ] Total PASS this month ({first_day.strftime('%Y-%m')}): {count}")
-        return count
-        
-    except Exception as e:
-        logging.error(f"[DB_READ] read_db_total_month failed: {e}")
-        return 0
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
+# --------------------------------------------------------------------------------
 
 def read_pass_timeout_from_db(
     server: str,
@@ -661,61 +594,51 @@ def read_pass_timeout_from_db(
     password: str,
     database: str,
     table: str = "[DBx].[dbo].[PL_PPE]"
-):
+) -> dict:
     """
-    Read PASS and TIMEOUT counts for TODAY from database.
-    Returns: {"PASS": count, "TIMEOUT": count}
+    Replicates the original read_pass_timeout_from_db by calling read_db_summary.
+    Returns a dictionary of 'PASS' and 'TIMEOUT' counts for TODAY.
     """
-    conn = None
-    try:
-        today = date.today()
-        start = f"{today.year}-{today.month:02d}-{today.day:02d} 00:00:00"
-        end = f"{today.year}-{today.month:02d}-{today.day:02d} 23:59:59"
+    # 1. Call generalized function for PASS and TIMEOUT statuses today
+    result = read_db_summary(
+        server=server,
+        user=user,
+        password=password,
+        database=database,
+        table=table,
+        statuses=["PASS", "TIMEOUT"],
+        time_frame="today"
+    )
+    # 2. Ensure both keys are present in the returned dictionary
+    return {
+        "PASS": result.get("PASS", 0),
+        "TIMEOUT": result.get("TIMEOUT", 0)
+    }
 
-        conn = pymssql.connect(
-            host=server, 
-            user=user, 
-            password=password, 
-            database=database, 
-            login_timeout=3
-        )
-        cur = conn.cursor()
-        
-        sql = f"""
-        SELECT 
-            [status],
-            COUNT(*) AS cnt
-        FROM {table}
-        WHERE [record_at] >= %s 
-          AND [record_at] <= %s
-          AND [status] IN ('PASS', 'TIMEOUT')
-        GROUP BY [status]
-        """
-        cur.execute(sql, (start, end))
-        rows = cur.fetchall()
-        
-        # Initialize result
-        result = {
-            "PASS": 0,
-            "TIMEOUT": 0
-        }
-        
-        # Fill in counts from database
-        for row in rows:
-            status = row[0]
-            count = int(row[1])
-            if status in result:
-                result[status] = count
-        
-        # logging.info(f"[DB_READ] Today's PASS/TIMEOUT: PASS={result['PASS']}, TIMEOUT={result['TIMEOUT']}")
-        return result
-        
-    except Exception as e:
-        # logging.error(f"[DB_READ] read_pass_timeout_from_db failed: {e}")
-        return {"PASS": 0, "TIMEOUT": 0}
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
+# --------------------------------------------------------------------------------
+
+def read_db_entry_date(
+    server: str,
+    user: str,
+    password: str,
+    database: str,
+    table: str = "[DBx].[dbo].[PL_PPE]",
+    days: int = 7
+) -> list:
+    """
+    Replicates the original read_db_entry_date by calling read_db_summary.
+    Returns a list of (date, total count) tuples for the last N days.
+    """
+    # 1. Call generalized function for PASS status, grouped by date, for N days
+    result = read_db_summary(
+        server=server,
+        user=user,
+        password=password,
+        database=database,
+        table=table,
+        statuses=["PASS"],
+        time_frame=f"days_back={days}",
+        group_by_date=True
+    )
+    # 2. The summary function is designed to return the required list of tuples
+    return result
