@@ -41,7 +41,6 @@ class MainApp(QtWidgets.QMainWindow):
         self.imgPass.setVisible(False)
         self.MessageTime.setVisible(False)
         self.Camera_Message.setVisible(False)
-        self.labelIDCard.setAlignment(Qt.AlignCenter)
 
         # UI Dashboard
         init_bar_chart(self.GraphEoD, y_max=40)
@@ -105,9 +104,7 @@ class MainApp(QtWidgets.QMainWindow):
     # --- UI helpers to react to logic events ---
     def show_scan_overlay(self):
         """Show 'Please Scan Card' screen."""
-        self.labelIDCard.setText("Please Scan ID Card")
-        self.labelIDCard.setVisible(True)
-        self.imglabel.setVisible(True)
+        self.imgManual.setVisible(True)
         self.Dashboard.setVisible(True)
         self.PL_PPE.setVisible(True)
         self.labelTotalEnt.setVisible(True)
@@ -131,8 +128,7 @@ class MainApp(QtWidgets.QMainWindow):
 
     def hide_scan_overlay(self):
         """Hide 'Please Scan Card' overlay when RFID detected."""
-        self.labelIDCard.setVisible(False)
-        self.imglabel.setVisible(False)
+        self.imgManual.setVisible(False)
         self.Dashboard.setVisible(False)
         self.PL_PPE.setVisible(False)
         self.labelTotalEnt.setVisible(False)
@@ -317,7 +313,7 @@ class MainApp(QtWidgets.QMainWindow):
         # Get TODAY's totals only
         try:
             db_config = IOHandler.load_json("JsonAsset/db.json") or {}
-            total_pass_today = read_db_total_today(**db_config)
+            read_db_total_today(**db_config)
             total_pass_Month = read_db_total_month(**db_config)
 
             if hasattr(self, "totalEnt"):
