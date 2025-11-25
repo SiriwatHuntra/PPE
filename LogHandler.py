@@ -130,10 +130,7 @@ def write_db_log(
     status: str,
     image_path: str = None
 ):
-    """
-    Insert 1 row into PL_PPE table:
-      [record_at], [opno], [enties_of_task], [status], [image_record]
-    """
+    """Insert 1 row into PL_PPE table, now using the core utility."""
     image_bytes = None
     if image_path:
         try:
@@ -142,28 +139,18 @@ def write_db_log(
         except Exception as e:
             logging.error(f"[DB_LOG] open image failed: {e}")
 
-    conn = None
-    try:
-        conn = pymssql.connect(host=server, user=user, password=password, database=database, login_timeout=3)
-        cur = conn.cursor()
-
-        # Parameterized query
-        sql = f"""
-        INSERT INTO {table}
-            ([record_at], [opno], [enties_of_task], [status], [image_record])
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        cur.execute(sql, (record_at, opno, enties_of_task, status, image_bytes))
-        conn.commit()
-        # logging.info(f"[DB_LOG] inserted ({opno}, {enties_of_task}, {status}) at {record_at}")
-    except Exception as e:
-        logging.error(f"[DB_LOG] insert failed: {e}")
-    finally:
-        try:
-            if conn:
-                conn.close()
-        except:
-            pass
+    sql = f"""
+    INSERT INTO {table}
+        ([record_at], [opno], [enties_of_task], [status], [image_record])
+    VALUES (%s, %s, %s, %s, %s)
+    """
+    params = (record_at, opno, enties_of_task, status, image_bytes)
+    
+    result = _execute_db_query(server, user, password, database, sql, params, commit=True)
+    if result is None:
+        logging.info(f"[DB_LOG] inserted ({opno}, {enties_of_task}, {status}) at {record_at}")
+    else:
+        logging.error(f"[DB_LOG] insert failed for ({opno}, {enties_of_task}, {status}) at {record_at}")
         
         
 def init_logger(name: str = "main") -> logging.Logger:
