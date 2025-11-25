@@ -194,54 +194,6 @@ def init_logger(name: str = "main") -> logging.Logger:
 # DATA ARCHIVE CRAWLER FUNCTIONS
 # ============================================================
 
-def read_today_summary(base="log/CSV"):
-    """
-    Read validation logs for TODAY ONLY and count PASS by task.
-    Returns dict with counts per task for current day.
-    """
-    today = datetime.date.today()
-    base = Path(base)
-    
-    result = {
-        "Solder Ability Test": 0,
-        "Chemical Analysis": 0,
-        "Thickness Measurement": 0,
-        "Group Lead": 0,
-        "Manager": 0,
-    }
-    
-    # Build path for today's file
-    yy, mm, dd = today.strftime("%Y"), today.strftime("%m"), today.strftime("%d")
-    file_path = base / "Validate" / yy / mm / f"Validate_{yy}-{mm}-{dd}.csv"
-    
-    if not file_path.exists():
-        logging.info(f"No validation log for today: {file_path}")
-        return result
-    
-    try:
-        df = pd.read_csv(file_path)
-        
-        # Check required columns
-        required = ["TASK", "Validation Status"]
-        if not set(required).issubset(df.columns):
-            logging.warning(f"Missing columns in {file_path}")
-            return result
-        
-        # Count PASS records by task
-        logging.info(f"Processing today's log: {len(df)} total records")
-        for task in result.keys():
-            count = ((df["TASK"] == task) & 
-                    (df["Validation Status"] == "PASS")).sum()
-            result[task] = int(count)
-            # if count > 0:
-            #     logging.info(f"Today - Task '{task}': {count} PASS")
-        
-    except Exception as e:
-        logging.error(f"Error reading today's log: {e}")
-    
-    logging.info(f"Today's summary: {result}")
-    return result
-
 def read_last_7_days_by_task_from_db(
     server: str,
     user: str,

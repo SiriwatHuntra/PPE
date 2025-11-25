@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPixmapItem, QMessageBox
 
 from Logic import LogicController
-from LogHandler import init_logger, read_last_7_days_by_task_from_db, read_db_total_today, read_today_summary, read_db_total_month, read_pass_timeout_from_db
+from LogHandler import init_logger, read_last_7_days_by_task_from_db, read_db_total_today, read_log_summary, read_db_total_month, read_pass_timeout_from_db
 from chart import init_bar_chart, update_bar_chart_by_task, init_pie_chart, update_pie_chart
 from Model.Model_optimize import task_select
 from IO import IOHandler
@@ -288,7 +288,7 @@ class MainApp(QtWidgets.QMainWindow):
     # --- inside class MainApp (UI.py) ---
     def get_today_totals(self):
         """Get totals for TODAY ONLY."""
-        result = read_today_summary()
+        result = read_log_summary(days_back=1)
         
         if result is None:
             logger.warning("read_today_summary returned None!")
@@ -313,7 +313,7 @@ class MainApp(QtWidgets.QMainWindow):
         # Get TODAY's totals only
         try:
             db_config = IOHandler.load_json("JsonAsset/db.json") or {}
-            read_db_total_today(**db_config)
+            total_pass_today =read_db_total_today(**db_config)
             total_pass_Month = read_db_total_month(**db_config)
 
             if hasattr(self, "totalEnt"):
