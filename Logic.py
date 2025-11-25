@@ -43,13 +43,7 @@ class LogicController(QtCore.QObject):
         self.last_image_save_time = 0
         self.image_save_interval = 3
         # ----------------- State -----------------
-        self.task_tag = {
-            "Chemical Analysis": 1,
-            "Solder Ability Test": 2,
-            "Thickness Measurement": 3,
-            "Group Lead": 4,
-            "Manager": 5
-        }
+        self.task_tag = IOHandler.load_json("JsonAsset/task_tags.json") or {}
         self.current_task = None
         self.expected_items = None
         self._last_annotated = None
