@@ -137,10 +137,6 @@ class LogicController(QtCore.QObject):
                 iw.setVisible(True)
         logger.info(f"Visible PPE for {task_name}: {expected_visible}")
 
-        # --- Update category label ---
-        if hasattr(self.ui, "lblcategory"):
-            self.ui.lblcategory.setText(task_name)
-
         # --- Show reference image ---
         ref_map = {
             "Chemical Analysis": "asset/Reference/Chemical_Analysis.png",
@@ -213,8 +209,17 @@ class LogicController(QtCore.QObject):
         # --- Enhanced Camera health check ---
         try:
             cap = getattr(self.io_handler, "cap", None)
-            cap_opened = callable(getattr(cap, "isOpened", None)) and cap.isOpened()
-        except Exception:
+            
+            # Check if cap exists and is opened
+            if cap is None or not cap.isOpened():
+                cap_opened = False
+            else:
+                # Try to actually read a frame to verify hardware connection
+                ret, test_frame = cap.read()
+                cap_opened = ret and test_frame is not None
+                
+        except Exception as e:
+            logger.error(f"Camera health check failed: {e}")
             cap_opened = False
 
         if not cap_opened:
