@@ -202,16 +202,15 @@ class LogicController(QtCore.QObject):
             self.io_handler.stop_validation_camera_monitor()
 
 
-    # ----------------------------------------------------
+    # ====================================================
     # CAMERA LOOP (FRAME PROVIDER)
-    # ----------------------------------------------------
+    # ====================================================
     def camera_loop(self):
         """Read frames from camera and send to model."""
         if not self.session_active or not self.io_handler:
             return
 
-        # --- Camera health check ---
-        # Camera health check + reconnection support (mockup UI hooks)
+        # --- Enhanced Camera health check ---
         try:
             cap = getattr(self.io_handler, "cap", None)
             cap_opened = callable(getattr(cap, "isOpened", None)) and cap.isOpened()
@@ -219,83 +218,108 @@ class LogicController(QtCore.QObject):
             cap_opened = False
 
         if not cap_opened:
-            logger.warning("Camera appears disconnected.")
-            
-            if hasattr(self.ui, "show_camera_text"):
+            logger.warning("Camera disconnected or not responding.")
+            print("camera disconnect")
+            # Show disconnection message on UI
+            if hasattr(self.ui, "show_Camera_Mes"):
                 try:
-                    self.ui.show_camera_text("camera_disconnect")
-                except:
-                    pass
+                    self.ui.show_Camera_Mes("Camera_disconnect")
+                except Exception as e:
+                    logger.error(f"Failed to show camera disconnect UI: {e}")
+            
+            # Stop validation and timers
             self._stop_timer()
             self.model_handler.stop_validation("CAMERA_DISCONNECTED")
-
-            # Inform UI (mockup functions to be implemented in integrated UI)
-            if hasattr(self.ui, "show_camera_disconnected"):
-                try:
-                    self.ui.show_camera_disconnected()
-                except Exception as e:
-                    logger.debug(f"UI show_camera_disconnected failed: {e}")
-
-            # simple reconnect counter stored on the controller instance
-            self._reconnect_attempts = getattr(self, "_reconnect_attempts", 0) + 1
-            max_retries = 3
-
-            if self._reconnect_attempts <= max_retries:
-                logger.info(f"Attempting camera reconnect (attempt {self._reconnect_attempts}/{max_retries})")
+            
+            # Initialize reconnect counter if needed
+            if not hasattr(self, "_reconnect_attempts"):
+                self._reconnect_attempts = 0
+                
+            self._reconnect_attempts += 1
+            max_retries = 5
+            
+            logger.info(f"Attempting camera reconnect (attempt {self._reconnect_attempts}/{max_retries})")
+            
+            # Release old camera reference
             try:
-                if self.io_handler.open_camera(retry=True):
-                    logger.info("Camera reconnect successful.")
-                    self._reconnect_attempts = 0
-                    if hasattr(self.ui, "show_camera_text"):
-                        try:
-                            self.ui.show_camera_text("camera_reconnect")
-                        except:
-                            pass
-                if hasattr(self.ui, "hide_camera_disconnected"):
-                    try:
-                        self.ui.hide_camera_disconnected()
-                    except Exception as e:
-                        logger.debug(f"UI hide_camera_disconnected failed: {e}")
-                else:
-                    # Give other event loop work a chance; return to retry on next tick
-                    return
+                if self.io_handler.cap:
+                    self.io_handler.cap.release()
+                    self.io_handler.cap = None
             except Exception as e:
-                logger.error(f"Reconnect attempt failed: {e}")
-                return
-            else:
-                logger.error("Camera permanently disconnected after retries.")
-            self._reconnect_attempts = 0
-            if hasattr(self.ui, "show_camera_failed"):
-                try:
-                    self.ui.show_camera_failed()
-                except Exception:
-                    pass
-            self.stop_task("CAMERA_DISCONNECTED")
-            self.full_reset()
+                logger.debug(f"Camera release during reconnect failed: {e}")
+            
+            # Try to reopen
+            try:
+                if self.io_handler.open_camera():
+                    logger.info("Camera reconnected successfully.")
+                    self._reconnect_attempts = 0
+                    
+                    # Hide camera disconnect message and show brief reconnection success
+                    if hasattr(self.ui, "Camera_Message"):
+                        self.ui.Camera_Message.setVisible(False)
+                    
+                    if hasattr(self.ui, "show_Camera_Mes"):
+                        try:
+                            self.ui.show_Camera_Mes("Camera_reconnect")
+                        except Exception as e:
+                            logger.error(f"Failed to show camera reconnect UI: {e}")
+                    
+                    # Resume validation if session was active
+                    if self.session_active and self.current_task:
+                        logger.info("Resuming validation after camera reconnect.")
+                        self.camera_timer.start()
+                        return
+                else:
+                    raise Exception("Camera open returned False")
+                    
+            except Exception as e:
+                logger.error(f"Camera reconnect attempt {self._reconnect_attempts} failed: {e}")
+                
+                if self._reconnect_attempts >= max_retries:
+                    logger.error("Camera permanently disconnected after max retries.")
+                    self._reconnect_attempts = 0
+                    self.stop_task("CAMERA_DISCONNECTED")
+                    QtCore.QTimer.singleShot(3000, self.full_reset)
+                else:
+                    # Try again after short delay
+                    QtCore.QTimer.singleShot(1000, self.camera_loop)
+            
             return
 
+        # --- Camera is healthy, proceed with normal frame capture ---
+        # Reset reconnect counter if we were reconnecting
+        if hasattr(self, "_reconnect_attempts") and self._reconnect_attempts > 0:
+            self._reconnect_attempts = 0
+            logger.info("Camera connection stable.")
+        
         frame = self.io_handler.read_frame()
         if frame is None:
+            logger.debug("No frame captured (read_frame returned None)")
             return
 
         try:
-            # resized = cv2.resize(frame, (980, 880)) # <-- REMOVED: Don't resize here. Let the model see the original frame.
-            self.model_handler.push_frame(frame) # <-- CHANGED: Push the original frame.
+            resized = cv2.resize(frame, (980, 1580))
+            #resized = frame
+            self.model_handler.push_frame(resized)
+            
             # --- Save Image every 3 seconds to "data" folder ---
             current_time = time.time()
             if current_time - self.last_image_save_time >= self.image_save_interval:
                 try:
-                    # Use IOHandler"z existing function (it auto-creates folder)
-                    self.io_handler.save_image_direct(frame,folder_prefix ="data",emp_id=getattr(self.ui, "current_emp_id", "Unknown"))
+                    self.io_handler.save_image_direct(
+                        resized,
+                        folder_prefix="data",
+                        emp_id=getattr(self.ui, "current_emp_id", "Unknown")
+                    )
                     self.last_image_save_time = current_time
                 except Exception as e:
                     logger.error(f"Interval image save failed: {e}")
+                    
         except Exception as e:
-            logger.error(f"Camera loop error: {e}")
-
-    # ----------------------------------------------------
+            logger.error(f"Camera loop processing error: {e}")
+    # ====================================================
     # SIGNAL HANDLERS FROM MODELHANDLER
-    # ----------------------------------------------------
+    # ====================================================
     def handle_result_ready(self, detected_items: dict, annotated_img):
         """Update live camera preview and PPE visuals."""
         self._last_annotated = annotated_img
@@ -309,7 +333,7 @@ class LogicController(QtCore.QObject):
             qt_img = QImage(rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qt_img)
 
-            #pixmap resixed
+            #pixmap resized     
             self.ui.pixmap_item.setPixmap(pixmap)
 
         except Exception as e:
@@ -317,6 +341,7 @@ class LogicController(QtCore.QObject):
 
         # --- Update PPE visuals (colors + counts) ---
         self.update_ppe_visuals(detected_items)
+
 
     @if_not_emergency
     def handle_validation_done(self, status: str):
@@ -362,13 +387,13 @@ class LogicController(QtCore.QObject):
             missing_str = "; ".join(f"{k}:{v}" for k, v in missing_items.items()) if missing_items else "NONE"
         else:
             missing_str = "NONE"
-        write_csv_log(
-            "Validate",
-            id=self.ui.current_emp_id,
-            task=self.current_task or "Unknown",
-            status=status,
-            missing=missing_str
-        )
+        # write_csv_log(
+        #     "Validate",
+        #     id=self.ui.current_emp_id,
+        #     task=self.current_task or "Unknown",
+        #     status=status,
+        #     missing=missing_str
+        # )
         csv_info = write_csv_log(
             "Validate",
             id=self.ui.current_emp_id,
@@ -415,8 +440,6 @@ class LogicController(QtCore.QObject):
             iw.setVisible(True)
             good += found
             ng += not found
-        for lbl, val in (("lblGood", good), ("lblNG", ng), ("lblTotal", good+ng)):
-            if hasattr(self.ui, lbl): getattr(self.ui, lbl).setText(f"{lbl[3:]} : {val}")
 
     def _tick_countdown(self):
         """Mirror ModelHandler's timer to UI display."""
@@ -443,17 +466,12 @@ class LogicController(QtCore.QObject):
     def _post_reset(self):
         """Handle UI cleanup and restart RFID after reset delay."""
         # --- Clear visuals ---
-        for n in ("labelsummary", "imgsummary", "MessageTime", "labelEmergency", "imgEmergency", "cameratext", "imgcameratext"):
+        for n in ("labelTimeout", "imgTimeout", "labelPass", "imgPass", "MessageTime", "labelEmergency", "imgEmergency", "Camera_Message"):
             w = getattr(self.ui, n, None)
             if w:
                 w.setVisible(False)
 
         # --- Reset PPE counters and text ---
-        for lbl in ("lblGood", "lblNG", "lblTotal"):
-            if hasattr(self.ui, lbl):
-                getattr(self.ui, lbl).setText(f"{lbl[3:]} : 0")
-        if hasattr(self.ui, "lblcategory"):
-            self.ui.lblcategory.setText("Section")
         if hasattr(self.ui, "Reflabel"):
             self.ui.Reflabel.clear()
         if hasattr(self.ui, "Countnum"):
@@ -472,17 +490,17 @@ class LogicController(QtCore.QObject):
         logger.info("System fully reset and ready for next scan.")
 
 
-    # ----------------------------------------------------
+    # ====================================================
     # EMERGENCY HELPER
-    # ----------------------------------------------------
+    # ====================================================
     def bind_io_signals(self):
         if not self.io_handler:
             return
-        self.io_handler.emergency_triggered.connect(self.handle_emergency_trigger)
-        self.io_handler.emergency_cleared.connect(self.handle_emergency_clear)
+        self.io_handler.emergency_triggered.connect(self.handle_emergency_triggered)
+        self.io_handler.emergency_cleared.connect(self.handle_emergency_cleared)
 
     @QtCore.pyqtSlot()
-    def handle_emergency_clear(self):
+    def handle_emergency_triggered(self):
         logger.warning("EMERGENCY triggered — performing full reset")
         self.emergency_active = True
         print("off")
@@ -516,7 +534,7 @@ class LogicController(QtCore.QObject):
            self.ui.show_emergency()
 
     @QtCore.pyqtSlot()
-    def handle_emergency_trigger(self):
+    def handle_emergency_cleared(self):
         if not self.emergency_active:
            logger.debug("Ignore redundant emergency_clear signal.")
            return
