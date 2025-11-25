@@ -7,6 +7,7 @@ from Logic import LogicController
 from LogHandler import init_logger, read_log_summary, read_db_entry_date, read_db_total_current_year
 from chart import init_bar_chart, update_bar_chart
 from Model.Model_optimize import task_select
+from IO import IOHandler
 
 logger = init_logger("Interface    ")
 
@@ -292,13 +293,10 @@ class MainApp(QtWidgets.QMainWindow):
         self.Total_thickness.setText("Thickness Measuerment : " + str(totals["Thickness Measurement"]))
 
         try:
-            total_pass_year = read_db_total_current_year(
-                server="172.16.0.102",
-                user="system",
-                password="p@$$w0rd",
-                database="APCSProDB",
-                table="[DBx].[dbo].[PL_PPE]"
-            )
+            db_config = IOHandler.load_json("JsonAsset/db.json") or {}
+            if db_config:
+                total_pass_year = read_db_total_current_year(**db_config)
+
             if hasattr(self, "totalEnt"):
                 self.totalEnt.setText(str(total_pass_year))
             self.refresh_eod_chart(days=7, y_max=40)
@@ -308,15 +306,11 @@ class MainApp(QtWidgets.QMainWindow):
     # refresh dashboard
     def refresh_eod_chart(self, days=7, y_max=40):
         try:
-            rows = read_db_entry_date(
-                server="172.16.0.102",
-                user="system",
-                password="p@$$w0rd",
-                database="APCSProDB",
-                table="[DBx].[dbo].[PL_PPE]",
-                days=days
-            )
-
+            db_config = IOHandler.load_json("JsonAsset/db.json") or {}
+            rows = []
+            if db_config:
+                db_config['days'] = days
+                rows = read_db_entry_date(**db_config)
             dates = [r[0].strftime("%d-%m") for r in rows] if rows else []
             counts = [r[1] for r in rows] if rows else []
 
@@ -407,5 +401,3 @@ class Menu(QtWidgets.QMainWindow):
         """Handle manual close button click."""
         self.close()
         self.emit_choice("CANCEL")
-
-
