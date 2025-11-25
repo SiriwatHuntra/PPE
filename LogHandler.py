@@ -74,6 +74,49 @@ def write_csv_log(log_type: str, **kwargs):
     logging.info(f"[CSV_LOG] {log_type} log saved → {csv_path}")
     return {"timestamp": timestamp, "csv_path": str(csv_path)}
 
+# --- NEW CORE DB UTILITY ---
+def _execute_db_query(server: str, user: str, password: str, database: str, sql: str, params: tuple = None, fetch_one=False, fetch_all=False, commit=False):
+    """Internal function to handle DB connection, query execution, and cleanup."""
+    conn = None
+    try:
+        conn = pymssql.connect(
+            host=server, 
+            user=user, 
+            password=password, 
+            database=database, 
+            login_timeout=3
+        )
+        cur = conn.cursor()
+        
+        if params is None:
+            cur.execute(sql)
+        else:
+            cur.execute(sql, params)
+
+        if commit:
+            conn.commit()
+            return None
+        
+        if fetch_one:
+            return cur.fetchone()
+        
+        if fetch_all:
+            return cur.fetchall()
+            
+        return None
+
+    except Exception as e:
+        logging.error(f"[DB_EXEC] Query failed: {e}\nSQL: {sql[:100]}...")
+        return None
+    finally:
+        try:
+            if conn: 
+                conn.close()
+        except: 
+            pass
+
+# The existing write_db_log is kept, but internally it would now call _execute_db_query with commit=True.
+# We'll refactor write_db_log to use this new utility:
 def write_db_log(
     server: str,
     user: str,
@@ -87,10 +130,7 @@ def write_db_log(
     status: str,
     image_path: str = None
 ):
-    """
-    Insert 1 row into PL_PPE table:
-      [record_at], [opno], [enties_of_task], [status], [image_record]
-    """
+    """Insert 1 row into PL_PPE table, now using the core utility."""
     image_bytes = None
     if image_path:
         try:
@@ -99,29 +139,19 @@ def write_db_log(
         except Exception as e:
             logging.error(f"[DB_LOG] open image failed: {e}")
 
-    conn = None
-    try:
-        conn = pymssql.connect(host=server, user=user, password=password, database=database, login_timeout=3)
-        cur = conn.cursor()
+    sql = f"""
+    INSERT INTO {table}
+        ([record_at], [opno], [enties_of_task], [status], [image_record])
+    VALUES (%s, %s, %s, %s, %s)
+    """
+    params = (record_at, opno, enties_of_task, status, image_bytes)
+    
+    result = _execute_db_query(server, user, password, database, sql, params, commit=True)
+    if result is None:
+        logging.info(f"[DB_LOG] inserted ({opno}, {enties_of_task}, {status}) at {record_at}")
+    else:
+        logging.error(f"[DB_LOG] insert failed for ({opno}, {enties_of_task}, {status}) at {record_at}")
 
-        # Parameterized query
-        sql = f"""
-        INSERT INTO {table}
-            ([record_at], [opno], [enties_of_task], [status], [image_record])
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        cur.execute(sql, (record_at, opno, enties_of_task, status, image_bytes))
-        conn.commit()
-        # logging.info(f"[DB_LOG] inserted ({opno}, {enties_of_task}, {status}) at {record_at}")
-    except Exception as e:
-        logging.error(f"[DB_LOG] insert failed: {e}")
-    finally:
-        try:
-            if conn:
-                conn.close()
-        except:
-            pass
-        
         
 def init_logger(name: str = "main") -> logging.Logger:
     """
@@ -410,6 +440,97 @@ def read_log_summary(days_back=7, base="log/CSV"):
 # ============================================================
 # DATABASE READ FUNCTIONS
 # ============================================================
+
+# --- MERGED DB READ FUNCTION ---
+def read_db_summary(
+    server: str,
+    user: str,
+    password: str,
+    database: str,
+    table: str = "[DBx].[dbo].[PL_PPE]",
+    statuses: list = None,
+    time_frame: str = "today",  # 'today', 'month', or 'days_back=N'
+    group_by_date: bool = False
+):
+    """
+    Reads summary counts from DB based on time frame, status, and grouping.
+
+    - statuses: List of statuses (e.g., ['PASS', 'TIMEOUT']) to include.
+    - time_frame: 'today', 'month', or 'days_back=N'.
+    - group_by_date: If True, returns results grouped by date (list of tuples).
+    """
+    
+    # 1. Determine Start Date and End Date (if required)
+    today = date.today()
+    start_date = None
+    end_date = None
+    
+    if time_frame == "today":
+        start_date = f"{today.year}-{today.month:02d}-{today.day:02d} 00:00:00"
+        end_date = f"{today.year}-{today.month:02d}-{today.day:02d} 23:59:59"
+    elif time_frame == "month":
+        first_day = date(today.year, today.month, 1)
+        start_date = f"{first_day.year}-{first_day.month:02d}-01 00:00:00"
+        # We don't set end_date, use WHERE [record_at] < DATEADD(MONTH, 1, %s)
+    elif time_frame.startswith("days_back="):
+        days = int(time_frame.split('=')[1])
+        # The SQL will handle the date range relative to GETDATE()
+        
+    # 2. Build Query Components
+    where_clauses = []
+    
+    # Status filtering
+    if statuses and isinstance(statuses, list):
+        status_list = ", ".join([f"'{s}'" for s in statuses])
+        where_clauses.append(f"[status] IN ({status_list})")
+
+    # Time frame filtering
+    params = []
+    if time_frame == "today" and start_date and end_date:
+        where_clauses.append("[record_at] >= %s AND [record_at] <= %s")
+        params.extend([start_date, end_date])
+    elif time_frame == "month" and start_date:
+        where_clauses.append("[record_at] >= %s AND [record_at] < DATEADD(MONTH, 1, %s)")
+        params.extend([start_date, start_date])
+    elif time_frame.startswith("days_back="):
+        where_clauses.append("[record_at] >= DATEADD(DAY, -%s, GETDATE())")
+        params.append(days)
+
+    where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
+    # Grouping and selecting
+    select_cols = "CONVERT(date, record_at) AS date, COUNT(*) AS cnt" if group_by_date else "[status], COUNT(*) AS cnt"
+    group_by_cols = "CONVERT(date, record_at)" if group_by_date else "[status]"
+    order_by_cols = "date ASC" if group_by_date else ""
+
+    # 3. Final SQL Construction
+    sql = f"""
+    SELECT {select_cols}
+    FROM {table}
+    {where_sql}
+    GROUP BY {group_by_cols}
+    ORDER BY {order_by_cols}
+    """
+    
+    # 4. Execute Query
+    rows = _execute_db_query(server, user, password, database, sql, tuple(params), fetch_all=True)
+
+    # 5. Process Results
+    if not rows:
+        return {} if not group_by_date else []
+
+    if group_by_date:
+        return [(r[0], int(r[1])) for r in rows] # Matches old read_db_entry_date output structure
+
+    # Return status counts (for 'today' or 'month' summary)
+    result = {s: 0 for s in statuses} if statuses else {}
+    for row in rows:
+        status = row[0]
+        count = int(row[1])
+        if status in result:
+            result[status] = count
+            
+    return result
 
 def read_db_entry_date(
     server: str,
