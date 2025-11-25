@@ -4,8 +4,8 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsPixmapItem, QMessageBox
 
 from Logic import LogicController
-from LogHandler import init_logger, read_log_summary, read_db_entry_date, read_db_total_current_year
-from chart import init_bar_chart, update_bar_chart
+from LogHandler import init_logger, read_last_7_days_by_task_from_db, read_db_total_today, read_today_summary, read_db_total_month, read_pass_timeout_from_db, total_pass_today
+from chart import init_bar_chart, update_bar_chart_by_task, init_pie_chart, update_pie_chart
 from Model.Model_optimize import task_select
 from IO import IOHandler
 
@@ -32,20 +32,24 @@ class MainApp(QtWidgets.QMainWindow):
         self.logic = LogicController(self)
         self.menu_window = Menu()
         self.connect_signals()
+        self.closebutton.setEnabled(True)
         
         # UI default view
-        self.labelsummary.setVisible(False)
-        self.imgsummary.setVisible(False)
+        self.labelTimeout.setVisible(False)
+        self.imgTimeout.setVisible(False)
+        self.labelPass.setVisible(False)
+        self.imgPass.setVisible(False)
         self.MessageTime.setVisible(False)
-        self.cameratext.setVisible(False)
-        #self.imgcameratext.setVisible(False)
+        self.Camera_Message.setVisible(False)
         self.labelIDCard.setAlignment(Qt.AlignCenter)
 
         # UI Dashboard
         init_bar_chart(self.GraphEoD, y_max=40)
         self.refresh_eod_chart(days=7, y_max=40)
+        init_pie_chart(self.GraphPie)
+        self.refresh_pie_chart()
 
-        # in MainApp.__init__ after UI is set up
+        # Clock timer
         self._clock_timer = QtCore.QTimer(self)
         self._clock_timer.setInterval(1000)
         self._clock_timer.timeout.connect(self._update_datetime)
@@ -66,7 +70,7 @@ class MainApp(QtWidgets.QMainWindow):
 
     def handle_menu_choice(self, choice: str):
         if choice == "CANCEL":
-            logger.info("Task selection CANCELled — returning to idle.")
+            logger.info("Task selection CANCELled – returning to idle.")
             self.logic.full_reset()
             return
 
@@ -108,23 +112,22 @@ class MainApp(QtWidgets.QMainWindow):
         self.PL_PPE.setVisible(True)
         self.labelTotalEnt.setVisible(True)
         self.totalEnt.setVisible(True)
+        self.labelMonth.setVisible(True)
+        self.totalMonth.setVisible(True)
         self.labelEoD.setVisible(True)
         self.GraphEoD.setVisible(True)
-        self.labelsummary.setVisible(False)
-        self.imgsummary.setVisible(False)
+        self.GraphPie.setVisible(True)
+        self.labelTimeout.setVisible(False)
+        self.imgTimeout.setVisible(False)
+        self.labelPass.setVisible(False)
+        self.imgPass.setVisible(False)
         self.MessageTime.setVisible(False)
-        if hasattr(self, "labelEmergency"):
-            self.labelEmergency.setVisible(False)
-        if hasattr(self, "imgEmergency"):
-            self.imgEmergency.setVisible(False)
-        if hasattr(self, "labelRFID"):
-            self.labelRFID.setVisible(False)
-        if hasattr(self, "imgRFID"):
-            self.imgRFID.setVisible(False)
-        if hasattr(self, "labelADAM"):
-            self.labelADAM.setVisible(False)
-        if hasattr(self, "imgADAM"):
-            self.imgADAM.setVisible(False)
+        self.labelEmergency.setVisible(False)
+        self.imgEmergency.setVisible(False)
+        self.labelADAM.setVisible(False)
+        self.imgADAM.setVisible(False)
+        self.labelRFID.setVisible(False)
+        self.imgRFID.setVisible(False)
 
     def hide_scan_overlay(self):
         """Hide 'Please Scan Card' overlay when RFID detected."""
@@ -134,40 +137,52 @@ class MainApp(QtWidgets.QMainWindow):
         self.PL_PPE.setVisible(False)
         self.labelTotalEnt.setVisible(False)
         self.totalEnt.setVisible(False)
+        self.labelMonth.setVisible(False)
+        self.totalMonth.setVisible(False)
         self.labelEoD.setVisible(False)
         self.GraphEoD.setVisible(False)
+        self.GraphPie.setVisible(False)
 
     def show_summary(self, status: str):
-        """Display PASS/FAIL/TIMEOUT summary."""
+        """Display PASS/TIMEOUT summary."""
         color_map = {
             "PASS": "#228B22",
-            "FAIL": "#800000",
             "TIMEOUT": "#808080"
         }
         image_map = {
             "PASS": "asset/Image/pass.png",
-            "FAIL": "asset/Image/fail.png",
             "TIMEOUT": "asset/Image/timeout.png"
         }
 
         color = color_map.get(status, "#808080")
         image_path = image_map.get(status)
-        self.labelsummary.setText(status)
-        self.labelsummary.setStyleSheet(
-            f"background:{color}; border-radius: 80px; color:white; padding-top: 280px;"
-        )
-        self.labelsummary.setVisible(True)
-        pixmap = QtGui.QPixmap(image_path).scaled(250, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        self.imgsummary.setPixmap(pixmap)
-        self.imgsummary.setVisible(True)
+        if status == "PASS":
+            self.labelPass.setText("PASS \n\n Door Open")
+            self.labelPass.setStyleSheet(
+                f"background:{color}; color:white;"
+            )
+            self.labelPass.setVisible(True)
+            pixmap = QtGui.QPixmap(image_path).scaled(95, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.imgPass.setPixmap(pixmap)
+            self.imgPass.setVisible(True)
+        
+        elif status == "TIMEOUT":
+            self.labelTimeout.setText(status)
+            self.labelTimeout.setStyleSheet(
+                f"background:{color}; border-radius: 80px; color:white; padding-top: 280px;"
+            )
+            self.labelTimeout.setVisible(True)
+            pixmap = QtGui.QPixmap(image_path).scaled(250, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.imgTimeout.setPixmap(pixmap)
+            self.imgTimeout.setVisible(True)
 
     @QtCore.pyqtSlot(str)
     def set_summary_text(self, text: str):
         """Show/Hide summary banner text from IO events."""
-        print("get summary text",text)
+        # print("get summary text",text)
         if text == "RFID_disconnect":
             if hasattr(self, "labelRFID"):
-                self.labelRFID.setText("RFID Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ RFID \nเชื่อมต่อกับคอมพิวเตอร์")
+                self.labelRFID.setText("RFID Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ RFID เชื่อมต่อกับคอมพิวเตอร์")
                 self.labelRFID.setAlignment(Qt.AlignCenter)
                 self.labelRFID.setVisible(True)
                 self.labelRFID.setStyleSheet("background:#DAA520; color:white; padding-top:460px;")
@@ -191,7 +206,7 @@ class MainApp(QtWidgets.QMainWindow):
                 QtCore.QTimer.singleShot(2000, lambda: self.imgRFID.setVisible(False))       
         elif text == "ADAM_disconnect":
             if hasattr(self, "labelADAM"):
-                self.labelADAM.setText("ADAM Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ ADAM \nเชื่อมต่อคอมพิวเตอร์")
+                self.labelADAM.setText("ADAM Not Found . . . .\nโปรดตรวจสอบอุปกรณ์ ADAM เชื่อมต่อกับคอมพิวเตอร์")
                 self.labelADAM.setAlignment(Qt.AlignCenter)
                 self.labelADAM.setStyleSheet("background:#DAA520; color:white; padding-top:460px;")
                 self.labelADAM.setVisible(True)
@@ -266,87 +281,113 @@ class MainApp(QtWidgets.QMainWindow):
             self._cam_popup.close()
             self._cam_popup = None
 
-    def show_camera_text(self, text: str):
-        if text == "camera_disconnect":
-            self.cameratext.setVisible(True)
-            #self.imgcameratext.setVisible(True)
-        elif text == "camera_reconnect" :
-            self.cameratext.setVisible(False)
-            #self.cameratext.setVisible(False)
+    def show_Camera_Mes(self, text: str):
+        print(text)
+        if text == "Camera_disconnect":
+            self.Camera_Message.setVisible(True)
+        elif text == "Camera_reconnect" :
+            self.Camera_Message.setVisible(False)
 
 
     # --- inside class MainApp (UI.py) ---
-    def get_totals_from_summary(self, days_back=7):
+    def get_today_totals(self):
+        """Get totals for TODAY ONLY."""
+        result = read_today_summary()
         
-        result = read_log_summary(days_back=days_back)
+        if result is None:
+            logger.warning("read_today_summary returned None!")
+            return {
+                "Chemical Analysis": 0,
+                "Solder Ability Test": 0,
+                "Thickness Measurement": 0,
+                "Group Lead": 0,
+                "Manager": 0,
+            }
+        
         return {
             "Chemical Analysis": result.get("Chemical Analysis", 0),
             "Solder Ability Test": result.get("Solder Ability Test", 0),
             "Thickness Measurement": result.get("Thickness Measurement", 0),
+            "Group Lead": result.get("Group Lead", 0),
+            "Manager": result.get("Manager", 0),
         }
         
     # update task total
     def update_task_totals(self):
-        totals = self.get_totals_from_summary(days_back=7)
-        self.Total_chemical.setText("Chemical Analysis : " + str(totals["Chemical Analysis"]))
-        self.Total_solder.setText("Solder Ability Test: " + str(totals["Solder Ability Test"]))
-        self.Total_thickness.setText("Thickness Measuerment : " + str(totals["Thickness Measurement"]))
-
+        # Get TODAY's totals only
         try:
             db_config = IOHandler.load_json("JsonAsset/db.json") or {}
-            if db_config:
-                total_pass_year = read_db_total_current_year(**db_config)
+            read_db_total_today(**db_config)
+            total_pass_Month = read_db_total_month(**db_config)
 
             if hasattr(self, "totalEnt"):
-                self.totalEnt.setText(str(total_pass_year))
+                self.totalEnt.setText(str(total_pass_today))
+            if hasattr(self, "totalMonth"):
+                self.totalMonth.setText(str(total_pass_Month))
+            
             self.refresh_eod_chart(days=7, y_max=40)
+            self.refresh_pie_chart()
+
         except Exception as e:
-            logger.error(f"update totalEnt (year) failed: {e}")
-    
+            logger.error(f"update totalEnt  failed: {e}")
+
     # refresh dashboard
     def refresh_eod_chart(self, days=7, y_max=40):
         try:
             db_config = IOHandler.load_json("JsonAsset/db.json") or {}
-            rows = []
-            if db_config:
-                db_config['days'] = days
-                rows = read_db_entry_date(**db_config)
-            dates = [r[0].strftime("%d-%m") for r in rows] if rows else []
-            counts = [r[1] for r in rows] if rows else []
-
-            update_bar_chart(self.GraphEoD, dates, counts, y_max=y_max)
-
+            data = read_last_7_days_by_task_from_db(**db_config)
+            update_bar_chart_by_task(self.GraphEoD, data, y_max=y_max)
         except Exception as e:
             logger.error(f"refresh_eod_chart failed: {e}")
 
-
+    def refresh_pie_chart(self):
+        """Refresh pie chart with today's PASS vs TIMEOUT distribution from database"""
+        try:
+            # read PASS/TIMEOUT from database
+            db_config = IOHandler.load_json("JsonAsset/db.json") or {}
+            pie_data = read_pass_timeout_from_db(**db_config)
+            
+            # filter data more than zero
+            filtered_data = {
+                status: count
+                for status, count in pie_data.items()
+                if count > 0
+            }
+            
+            # If no data it will show " NO DATA "
+            if not filtered_data:
+                filtered_data = {}  
+            
+            update_pie_chart(self.GraphPie, filtered_data)
+            
+        except Exception as e:
+            logger.error(f"refresh_pie_chart failed: {e}")
 
 class Menu(QtWidgets.QMainWindow):
     choice_made = QtCore.pyqtSignal(str)
     close_requested = QtCore.pyqtSignal()
     
     def __init__(self):
-        
         super().__init__()
         uic.loadUi("asset/SelectMenu.ui", self)
         self.setWindowTitle("Select Menu")
         
         #set before take choice
-        
         self.btnCA.clicked.connect(lambda: self.emit_choice("Chemical Analysis"))
         self.btnSAT.clicked.connect(lambda: self.emit_choice("Solder Ability Test"))
         self.btnTM.clicked.connect(lambda: self.emit_choice("Thickness Measurement"))
         self.btnGL.clicked.connect(lambda: self.emit_choice("Group Lead"))
         self.btnMGR.clicked.connect(lambda: self.emit_choice("Manager"))
 
-
         if hasattr(self, "closebtnSelect"):
             self.closebtnSelect.clicked.connect(self.trigger_closeMenu)
             self.closebtnSelect.setVisible(True)
-        
+
     def apply_role(self, role: str):
         """Enable only buttons allowed by position."""
         role = role.upper().strip()
+
+        # Button references
         btns = {
             "Chemical Analysis": self.btnCA,
             "Solder Ability Test": self.btnSAT,
@@ -355,39 +396,38 @@ class Menu(QtWidgets.QMainWindow):
             "Manager": self.btnMGR,
         }
 
-            # UI styling (apply once)
-        for b in btns.values():
-            b.setStyleSheet("""
-            QPushButton {
-                color: #C9DFEE;
-                background-color: #0A84FF;
-                border-radius: 12px;
-                text-align: left;
-                padding-left: 170px;
-            }
+        # Role-to-button mapping
+        role_map = {
+            "M": ["Manager"],
+            "GL": ["Group Lead"],
+            "O": ["Chemical Analysis", "Solder Ability Test", "Thickness Measurement"],
+            "DEV": ["Chemical Analysis", "Solder Ability Test", "Thickness Measurement", "Group Lead", "Manager"],
+        }
 
-            QPushButton:disabled {
-                background-color: #2A2A2A;
-                color: #808080;
-                border: 2px solid #444;
-            }
-            """)
+        # Apply styling once
+        style = """
+        QPushButton {
+            color: #C9DFEE;
+            background-color: #0A84FF;
+            border-radius: 12px;
+            text-align: left;
+            padding-left: 170px;
+        }
+        QPushButton:disabled {
+            background-color: #2A2A2A;
+            color: #808080;
+            border: 2px solid #444;
+        }
+        """
+        for btn in btns.values():
+            btn.setStyleSheet(style)
+            btn.setEnabled(False)
+            btn.setVisible(True)
 
-        #Disable all first, Set inviible
-        for b in btns.values():
-            b.setEnabled(False)
-            b.setVisible(True)
-
-        # Enable for position
-        if role == "M":
-            btns["Manager"].setEnabled(True)
-
-        elif role == "GL":
-            btns["Group Lead"].setEnabled(True)
-
-        elif role == "O":
-            for key in ["Chemical Analysis", "Solder Ability Test", "Thickness Measurement"]:
-                btns[key].setEnabled(True)
+        # Enable buttons based on role
+        for key in role_map.get(role, []):
+            if key in btns:
+                btns[key].setEnabled(True)      
                 
     def emit_choice(self, choice: str):
         self.choice_made.emit(choice)
