@@ -4,7 +4,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from collections import Counter
 import pandas as pd
-from datetime import date
+from datetime import date, timedelta
 
 """
 Archive file format
@@ -314,6 +314,16 @@ def _get_db_read_sql_and_params(time_frame: str):
         where_clause = " [record_at] >= %s AND [record_at] <= %s "
         end = f"{today.year}-{today.month:02d}-{today.day:02d} 23:59:59"
         params = (start, end)
+    elif time_frame == "week":
+        # Check from the start of the current calendar week (Monday 00:00:00)
+        # today.weekday() returns 0 for Monday, 6 for Sunday
+        days_to_subtract = today.weekday()
+        start_of_week = today - timedelta(days=days_to_subtract)
+        
+        start = f"{start_of_week.year}-{start_of_week.month:02d}-{start_of_week.day:02d} 00:00:00"
+        # The range goes until the start of next Monday (7 days from start_of_week)
+        where_clause = " [record_at] >= %s AND [record_at] < DATEADD(DAY, 7, %s) "
+        params = (start, start)
     elif time_frame == "month":
         # Check from the first day of the current month
         first_day = date(today.year, today.month, 1)
