@@ -120,6 +120,35 @@ def write_csv_log(log_type: str, **kwargs):
 # DATA ARCHIVE CRAWLER FUNCTIONS
 # ============================================================
 
+def _calculate_task_summary(df: pd.DataFrame) -> dict:
+    """
+    Helper function to calculate PASS counts for specific tasks from a DataFrame.
+    This logic is extracted and reused by both read_log_summary and read_today_summary.
+    """
+    tasks = [
+        "Solder Ability Test",
+        "Chemical Analysis",
+        "Thickness Measurement",
+        "Group Lead",
+        "Manager",
+    ]
+    
+    result = {task: 0 for task in tasks}
+    
+    # Check required columns
+    required = ["TASK", "Validation Status"]
+    if not set(required).issubset(df.columns):
+        logging.warning("Missing required columns for task summary.")
+        return result
+
+    # Count PASS records by task
+    for task in tasks:
+        count = ((df["TASK"] == task) & 
+                 (df["Validation Status"] == "PASS")).sum()
+        result[task] = int(count)
+    
+    return result
+
 def read_log_summary(days_back=7, base="log/CSV"):
     """
     Read validation logs from last N days and count PASS by task.
@@ -192,16 +221,10 @@ def read_log_summary(days_back=7, base="log/CSV"):
     val_df = collect_frames("Validate")
     if not val_df.empty:
         logging.info(f"Processing {len(val_df)} validation records")
-        for task in [
-            "Solder Ability Test",
-            "Chemical Analysis",
-            "Thickness Measurement",
-            "Group Lead",
-            "Manager",
-        ]:
-            count = ((val_df["TASK"] == task) &
-                    (val_df["Validation Status"] == "PASS")).sum()
-            result[task] = int(count)
+            
+        # *** REPLACED REPEATED LOGIC WITH HELPER FUNCTION CALL ***
+        task_summary = _calculate_task_summary(val_df)
+        result.update(task_summary) # Update the result dict with task counts
 
     # ---------------- Emergency logs ----------------
     emg_df = collect_frames("Emergency")
@@ -211,6 +234,35 @@ def read_log_summary(days_back=7, base="log/CSV"):
         result["emergency_events"] = dict(Counter(emg_df[~hw_mask]["Status"]))
 
     return result
+
+def read_today_summary(base="log/CSV"):
+    """
+    Read validation logs for TODAY ONLY and count PASS by task.
+    Returns dict with counts per task for current day.
+    """
+    today = datetime.date.today() # Use datetime.date.today() from imported module
+    base = Path(base)
+    
+    # Build path for today's file
+    yy, mm, dd = today.strftime("%Y"), today.strftime("%m"), today.strftime("%d")
+    file_path = base / "Validate" / yy / mm / f"Validate_{yy}-{mm}-{dd}.csv"
+    
+    if not file_path.exists():
+        logging.info(f"No validation log for today: {file_path}")
+        return _calculate_task_summary(pd.DataFrame()) # Return empty counts
+    
+    try:
+        df = pd.read_csv(file_path)
+        
+        # Use the reusable helper function for calculation
+        result = _calculate_task_summary(df)
+        
+        logging.info(f"Today's summary: {result}")
+        return result
+        
+    except Exception as e:
+        logging.error(f"Error reading today's log: {e}")
+        return _calculate_task_summary(pd.DataFrame()) # Return empty counts
 
 # --- NEW CORE DB UTILITY (Kept as is) ---
 def _execute_db_query(server: str, 
@@ -521,25 +573,3 @@ def read_pass_timeout_from_db(
         status_filter="'PASS', 'TIMEOUT'", 
         group_by_status=True
     )
-
-def read_today_summary_from_db(
-    server: str,
-    user: str,
-    password: str,
-    database: str,
-    table: str = "[DBx].[dbo].[PL_PPE]"
-):
-    """
-    Read summary of today's PASS and TIMEOUT counts from database.
-    (Now calls _execute_db_read_count)
-    """
-    return _execute_db_read_count(
-        server, 
-        user, 
-        password, 
-        database, 
-        table, 
-        time_frame="today", 
-        status_filter="'PASS', 'TIMEOUT'", 
-        group_by_status=True
-    )   
