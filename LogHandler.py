@@ -31,6 +31,39 @@ def call_datetime_now():
     time = datetime.datetime.now().strftime("%H:%M:%S") 
     return date, time
 
+# LogHandler.py
+import os, csv, threading, logging, datetime, pymssql
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
+from collections import Counter
+import pandas as pd
+from datetime import date
+
+"""
+Archive file format
+log/
+ └── CSV/
+     ├── Validate/
+     │    ├── 2025/
+     │    │    ├── 01/
+     │    │    ├── 02/
+     │    │    └── 11/
+     │    │         └── Validate_2025-11-17.csv
+     └── Emergency/
+          └── 2025/
+               └── 11/
+                    └── Emergency_2025-11-17.csv
+"""
+LOG_DIR = "log/text"
+os.makedirs(LOG_DIR, exist_ok=True)
+_csv_lock = threading.Lock()
+
+def call_datetime_now():
+    """Return current datetime object."""
+    date = datetime.datetime.now().strftime("%Y-%m-%d")
+    time = datetime.datetime.now().strftime("%H:%M:%S") 
+    return date, time
+
 class CSVFormatter(logging.Formatter):
     """Custom formatter for compact CSV-like output."""
     def format(self, record):
@@ -79,6 +112,106 @@ def write_csv_log(log_type: str, **kwargs):
 
     logging.info(f"[CSV_LOG] {log_type} log saved → {csv_path}")
     return {"timestamp": timestamp, "csv_path": str(csv_path)}
+
+# ============================================================
+# DATA ARCHIVE CRAWLER FUNCTIONS
+# ============================================================
+
+def read_log_summary(days_back=7, base="log/CSV"):
+    """
+    Read validation logs from last N days and count PASS by task.
+    Returns dict with counts per task.
+    """
+    today = datetime.date.today()
+    base = Path(base)
+
+    result = {
+        "Solder Ability Test": 0,
+        "Chemical Analysis": 0,
+        "Thickness Measurement": 0,
+        "Group Lead": 0,
+        "Manager": 0,
+        "emergency_events": {},
+        "hardware_events": {},
+    }
+
+    # ---------------- Helper ----------------
+    def collect_frames(folder_name):
+        frames = []
+        for i in range(days_back):
+            day = today - datetime.timedelta(days=i)
+            yy, mm, dd = day.strftime("%Y"), day.strftime("%m"), day.strftime("%d")
+            file_path = base / folder_name / yy / mm / f"{folder_name}_{yy}-{mm}-{dd}.csv"
+            
+            if not file_path.exists():
+                logging.debug(f"Skip, No file: {file_path}")
+                continue
+            
+            try:
+                df = pd.read_csv(file_path)
+                
+                # Check required columns exist
+                if folder_name == "Validate":
+                    required = ["TASK", "Validation Status", "TimeStamp"]
+                    if not set(required).issubset(df.columns):
+                        logging.warning(f"Skip {file_path}: missing columns {required}")
+                        continue
+                    
+                    # Parse timestamp and filter by date
+                    df["TimeStamp"] = pd.to_datetime(df["TimeStamp"], errors="coerce")
+                    df = df.dropna(subset=["TimeStamp"])  # Remove invalid timestamps
+                    
+                    # Filter rows from this specific day onwards
+                    df = df[df["TimeStamp"].dt.date >= day]
+                    
+                    if not df.empty:
+                        frames.append(df)
+                        logging.info(f"Loaded {len(df)} rows from {file_path}")
+                        
+                elif folder_name == "Emergency":
+                    if "TimeStamp" not in df.columns or "Status" not in df.columns:
+                        continue
+                    df["TimeStamp"] = pd.to_datetime(df["TimeStamp"], errors="coerce")
+                    df = df.dropna(subset=["TimeStamp"])
+                    df = df[df["TimeStamp"].dt.date >= day]
+                    if not df.empty:
+                        frames.append(df)
+                        
+            except Exception as e:
+                logging.error(f"Error reading {file_path}: {e}")
+                continue
+
+        combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if not combined.empty:
+            logging.info(f"Total {len(combined)} rows collected for {folder_name}")
+        return combined
+
+    # ---------------- Validate logs ----------------
+    val_df = collect_frames("Validate")
+    if not val_df.empty:
+        logging.info(f"Processing {len(val_df)} validation records")
+        for task in [
+            "Solder Ability Test",
+            "Chemical Analysis",
+            "Thickness Measurement",
+            "Group Lead",
+            "Manager",
+        ]:
+            count = ((val_df["TASK"] == task) &
+                    (val_df["Validation Status"] == "PASS")).sum()
+            result[task] = int(count)
+            # if count > 0:
+            #     logging.info(f"Task '{task}': {count} PASS records")
+
+    # ---------------- Emergency logs ----------------
+    emg_df = collect_frames("Emergency")
+    if not emg_df.empty:
+        hw_mask = emg_df["Status"].str.contains("BOARD|RFID|DEVICE", case=False, na=False)
+        result["hardware_events"] = dict(Counter(emg_df[hw_mask]["Status"]))
+        result["emergency_events"] = dict(Counter(emg_df[~hw_mask]["Status"]))
+
+    # logging.info(f"Summary result: {result}")
+    return result
 
 # --- NEW CORE DB UTILITY ---
 def _execute_db_query(server: str, 
@@ -129,8 +262,7 @@ def _execute_db_query(server: str,
         except: 
             pass
 
-# The existing write_db_log is kept, but internally it would now call _execute_db_query with commit=True.
-# We'll refactor write_db_log to use this new utility:
+
 def write_db_log(
     server: str,
     user: str,
@@ -165,47 +297,9 @@ def write_db_log(
         logging.info(f"[DB_LOG] inserted ({opno}, {enties_of_task}, {status}) at {record_at}")
     else:
         logging.error(f"[DB_LOG] insert failed for ({opno}, {enties_of_task}, {status}) at {record_at}")
-        
-        
-def init_logger(name: str = "main") -> logging.Logger:
-    """
-    Create a date rotating logger that writes to file and terminal.
-    Format:
-        10:03:45 | INFO | IO | open_camera | Camera opened (index=0).
-    """
-    date_tag = datetime.datetime.now().strftime("%Y-%m-%d")
-    log_path = os.path.join(LOG_DIR, f"{date_tag}.log")
-
-    # --- format for both file and console ---
-    fmt = "%(asctime)s | %(levelname)s | %(name)s | %(funcName)s | %(message)s"
-    formatter = logging.Formatter(fmt, datefmt="%H:%M:%S")
-
-    # --- rotating file handler ---
-    file_handler = TimedRotatingFileHandler(
-        log_path, when="midnight", backupCount=7, encoding="utf-8"
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.INFO)
-
-    # --- console (terminal) handler ---
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.INFO)
-
-    # --- logger setup ---
-    logger = logging.getLogger(name)
-    logger.handlers.clear()
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-
-    logger.info(f"Logger initialized for '{name}' → {log_path}")
-    return logger
-
 
 # ============================================================
-# DATA ARCHIVE CRAWLER FUNCTIONS
+# DATABASE READ FUNCTIONS
 # ============================================================
 
 def read_last_7_days_by_task_from_db(
@@ -305,107 +399,6 @@ def read_last_7_days_by_task_from_db(
                 conn.close()
         except:
             pass
-
-def read_log_summary(days_back=7, base="log/CSV"):
-    """
-    Read validation logs from last N days and count PASS by task.
-    Returns dict with counts per task.
-    """
-    today = datetime.date.today()
-    base = Path(base)
-
-    result = {
-        "Solder Ability Test": 0,
-        "Chemical Analysis": 0,
-        "Thickness Measurement": 0,
-        "Group Lead": 0,
-        "Manager": 0,
-        "emergency_events": {},
-        "hardware_events": {},
-    }
-
-    # ---------------- Helper ----------------
-    def collect_frames(folder_name):
-        frames = []
-        for i in range(days_back):
-            day = today - datetime.timedelta(days=i)
-            yy, mm, dd = day.strftime("%Y"), day.strftime("%m"), day.strftime("%d")
-            file_path = base / folder_name / yy / mm / f"{folder_name}_{yy}-{mm}-{dd}.csv"
-            
-            if not file_path.exists():
-                logging.debug(f"Skip, No file: {file_path}")
-                continue
-            
-            try:
-                df = pd.read_csv(file_path)
-                
-                # Check required columns exist
-                if folder_name == "Validate":
-                    required = ["TASK", "Validation Status", "TimeStamp"]
-                    if not set(required).issubset(df.columns):
-                        logging.warning(f"Skip {file_path}: missing columns {required}")
-                        continue
-                    
-                    # Parse timestamp and filter by date
-                    df["TimeStamp"] = pd.to_datetime(df["TimeStamp"], errors="coerce")
-                    df = df.dropna(subset=["TimeStamp"])  # Remove invalid timestamps
-                    
-                    # Filter rows from this specific day onwards
-                    df = df[df["TimeStamp"].dt.date >= day]
-                    
-                    if not df.empty:
-                        frames.append(df)
-                        logging.info(f"Loaded {len(df)} rows from {file_path}")
-                        
-                elif folder_name == "Emergency":
-                    if "TimeStamp" not in df.columns or "Status" not in df.columns:
-                        continue
-                    df["TimeStamp"] = pd.to_datetime(df["TimeStamp"], errors="coerce")
-                    df = df.dropna(subset=["TimeStamp"])
-                    df = df[df["TimeStamp"].dt.date >= day]
-                    if not df.empty:
-                        frames.append(df)
-                        
-            except Exception as e:
-                logging.error(f"Error reading {file_path}: {e}")
-                continue
-
-        combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        if not combined.empty:
-            logging.info(f"Total {len(combined)} rows collected for {folder_name}")
-        return combined
-
-    # ---------------- Validate logs ----------------
-    val_df = collect_frames("Validate")
-    if not val_df.empty:
-        logging.info(f"Processing {len(val_df)} validation records")
-        for task in [
-            "Solder Ability Test",
-            "Chemical Analysis",
-            "Thickness Measurement",
-            "Group Lead",
-            "Manager",
-        ]:
-            count = ((val_df["TASK"] == task) &
-                    (val_df["Validation Status"] == "PASS")).sum()
-            result[task] = int(count)
-            # if count > 0:
-            #     logging.info(f"Task '{task}': {count} PASS records")
-
-    # ---------------- Emergency logs ----------------
-    emg_df = collect_frames("Emergency")
-    if not emg_df.empty:
-        hw_mask = emg_df["Status"].str.contains("BOARD|RFID|DEVICE", case=False, na=False)
-        result["hardware_events"] = dict(Counter(emg_df[hw_mask]["Status"]))
-        result["emergency_events"] = dict(Counter(emg_df[~hw_mask]["Status"]))
-
-    # logging.info(f"Summary result: {result}")
-    return result
-
-
-# ============================================================
-# DATABASE READ FUNCTIONS
-# ============================================================
 
 # --- MERGED DB READ FUNCTION ---
 def read_db_summary(
