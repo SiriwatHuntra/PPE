@@ -31,39 +31,6 @@ def call_datetime_now():
     time = datetime.datetime.now().strftime("%H:%M:%S") 
     return date, time
 
-# LogHandler.py
-import os, csv, threading, logging, datetime, pymssql
-from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
-from collections import Counter
-import pandas as pd
-from datetime import date
-
-"""
-Archive file format
-log/
- └── CSV/
-     ├── Validate/
-     │    ├── 2025/
-     │    │    ├── 01/
-     │    │    ├── 02/
-     │    │    └── 11/
-     │    │         └── Validate_2025-11-17.csv
-     └── Emergency/
-          └── 2025/
-               └── 11/
-                    └── Emergency_2025-11-17.csv
-"""
-LOG_DIR = "log/text"
-os.makedirs(LOG_DIR, exist_ok=True)
-_csv_lock = threading.Lock()
-
-def call_datetime_now():
-    """Return current datetime object."""
-    date = datetime.datetime.now().strftime("%Y-%m-%d")
-    time = datetime.datetime.now().strftime("%H:%M:%S") 
-    return date, time
-
 class CSVFormatter(logging.Formatter):
     """Custom formatter for compact CSV-like output."""
     def format(self, record):
