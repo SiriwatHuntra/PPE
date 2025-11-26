@@ -363,11 +363,6 @@ def _get_db_params(server, user, password, database, table):
         "table": table
     }
 
-
-
-
-
-
 def _get_db_read_sql_and_params(time_frame: str):
     """
     Helper to get the WHERE clause and parameters for different timeframes.
