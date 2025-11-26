@@ -353,6 +353,20 @@ def write_db_log(
 # ============================================================
 # NEW BUNDLED READ FUNCTIONS
 # ============================================================
+def _get_db_params(server, user, password, database, table):
+    """Helper to bundle DB connection parameters."""
+    return {
+        "server": server,
+        "user": user,
+        "password": password,
+        "database": database,
+        "table": table
+    }
+
+
+
+
+
 
 def _get_db_read_sql_and_params(time_frame: str):
     """
@@ -536,7 +550,15 @@ def read_db_total_today(
     Return total count of PASS records for TODAY only.
     (Now calls _execute_db_read_count)
     """
-    return _execute_db_read_count(server, user, password, database, table, time_frame="today", status_filter="'PASS'", group_by_status=False)
+    return _execute_db_read_count(
+        server=server,
+        user=user,
+        password=password,
+        database=database,
+        table=table,
+        time_frame="today",
+        status_filter="'PASS'",
+        group_by_status=False)
 
 
 def read_db_total_month(
@@ -550,7 +572,15 @@ def read_db_total_month(
     Return total count of PASS records for CURRENT MONTH only (from day 1 to last day).
     (Now calls _execute_db_read_count)
     """
-    return _execute_db_read_count(server, user, password, database, table, time_frame="month", status_filter="'PASS'", group_by_status=False)
+    return _execute_db_read_count(
+        server=server,
+        user=user,
+        password=password,
+        database=database,
+        table=table,
+        time_frame="month",
+        status_filter="'PASS'",
+        group_by_status=False)
 
 def read_pass_timeout_from_db(
     server: str,

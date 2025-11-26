@@ -312,12 +312,15 @@ class MainApp(QtWidgets.QMainWindow):
     def update_task_totals(self):
         # Get TODAY's totals only
         try:
-            db_config = IOHandler.load_json("JsonAsset/db.json") or {}
-            total_pass_today = read_db_total_today(**db_config)
-            total_pass_Month = read_db_total_month(**db_config)
+            db_config = IOHandler.load_json("JsonAsset/db.json")
+            if db_config:
+                db_params = db_config.get("db_connection", {})
+                db_params["table"] = db_config.get("db_tables", {}).get("log_table")
+                total_pass_today = read_db_total_today(**db_params)
+                total_pass_Month = read_db_total_month(**db_params)
 
-            if hasattr(self, "totalEnt"):
-                self.totalEnt.setText(str(total_pass_today))
+                if hasattr(self, "totalEnt"):
+                    self.totalEnt.setText(str(total_pass_today))
             if hasattr(self, "totalMonth"):
                 self.totalMonth.setText(str(total_pass_Month))
             
@@ -330,31 +333,34 @@ class MainApp(QtWidgets.QMainWindow):
     # refresh dashboard
     def refresh_eod_chart(self, days=7, y_max=40):
         try:
-            db_config = IOHandler.load_json("JsonAsset/db.json") or {}
-            data = read_last_7_days_by_task_from_db(**db_config)
-            update_bar_chart_by_task(self.GraphEoD, data, y_max=y_max)
+            db_config = IOHandler.load_json("JsonAsset/db.json")
+            if db_config:
+                db_params = db_config.get("db_connection", {})
+                db_params["table"] = db_config.get("db_tables", {}).get("log_table")
+                data = read_last_7_days_by_task_from_db(**db_params)
+                update_bar_chart_by_task(self.GraphEoD, data, y_max=y_max)
         except Exception as e:
             logger.error(f"refresh_eod_chart failed: {e}")
 
     def refresh_pie_chart(self):
         """Refresh pie chart with today's PASS vs TIMEOUT distribution from database"""
         try:
-            # read PASS/TIMEOUT from database
-            db_config = IOHandler.load_json("JsonAsset/db.json") or {}
-            pie_data = read_pass_timeout_from_db(**db_config)
-            
-            # filter data more than zero
-            filtered_data = {
-                status: count
-                for status, count in pie_data.items()
-                if count > 0
-            }
-            
-            # If no data it will show " NO DATA "
-            if not filtered_data:
-                filtered_data = {}  
-            
-            update_pie_chart(self.GraphPie, filtered_data)
+            db_config = IOHandler.load_json("JsonAsset/db.json")
+            if db_config:
+                db_params = db_config.get("db_connection", {})
+                db_params["table"] = db_config.get("db_tables", {}).get("log_table")
+                pie_data = read_pass_timeout_from_db(**db_params)
+                
+                filtered_data = {
+                    status: count
+                    for status, count in pie_data.items()
+                    if count > 0
+                }
+                
+                if not filtered_data:
+                    filtered_data = {}  
+                
+                update_pie_chart(self.GraphPie, filtered_data)
             
         except Exception as e:
             logger.error(f"refresh_pie_chart failed: {e}")
