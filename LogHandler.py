@@ -213,7 +213,7 @@ def read_log_summary(days_back=7, base="log/CSV"):
     # logging.info(f"Summary result: {result}")
     return result
 
-# --- NEW CORE DB UTILITY ---
+# --- NEW CORE DB UTILITY (Kept as is) ---
 def _execute_db_query(server: str, 
                       user: str, 
                       password: str, 
@@ -244,6 +244,7 @@ def _execute_db_query(server: str,
             conn.commit()
             return None
         
+        # Determine fetch strategy
         if fetch_one:
             return cur.fetchone()
         
@@ -262,7 +263,7 @@ def _execute_db_query(server: str,
         except: 
             pass
 
-
+# The existing write_db_log is kept, but internally it would now call _execute_db_query with commit=True.
 def write_db_log(
     server: str,
     user: str,
@@ -297,9 +298,87 @@ def write_db_log(
         logging.info(f"[DB_LOG] inserted ({opno}, {enties_of_task}, {status}) at {record_at}")
     else:
         logging.error(f"[DB_LOG] insert failed for ({opno}, {enties_of_task}, {status}) at {record_at}")
+        
+# ============================================================
+# NEW BUNDLED READ FUNCTIONS
+# ============================================================
+
+def _get_db_read_sql_and_params(time_frame: str):
+    """
+    Helper to get the WHERE clause and parameters for different timeframes.
+    Replaces repetitive date calculation logic.
+    """
+    today = date.today()
+    if time_frame == "today":
+        # Check from 00:00:00 to 23:59:59 of today
+        start = f"{today.year}-{today.month:02d}-{today.day:02d} 00:00:00"
+        where_clause = " [record_at] >= %s AND [record_at] <= %s "
+        end = f"{today.year}-{today.month:02d}-{today.day:02d} 23:59:59"
+        params = (start, end)
+    elif time_frame == "month":
+        # Check from the first day of the current month
+        first_day = date(today.year, today.month, 1)
+        start = f"{first_day.year}-{first_day.month:02d}-01 00:00:00"
+        where_clause = " [record_at] >= %s AND [record_at] < DATEADD(MONTH, 1, %s) "
+        params = (start, start)
+    else:
+        raise ValueError("Invalid time_frame")
+    
+    return where_clause, params
+
+def _execute_db_read_count(
+    server: str,
+    user: str,
+    password: str,
+    database: str,
+    table: str,
+    time_frame: str, # "today" or "month"
+    status_filter: str = "'PASS'", # SQL IN list or single value
+    group_by_status: bool = False
+):
+    """
+    Consolidated function to read simple counts/aggregations.
+    Bundles read_db_total_today, read_db_total_month, and read_pass_timeout_from_db logic.
+    """
+    try:
+        where_time, params = _get_db_read_sql_and_params(time_frame)
+    except ValueError:
+        return {"PASS": 0, "TIMEOUT": 0} if group_by_status else 0
+
+    if group_by_status:
+        # Used for read_pass_timeout_from_db
+        select_clause = "[status], COUNT(*) AS cnt"
+        group_clause = "GROUP BY [status]"
+    else:
+        # Used for read_db_total_today and read_db_total_month
+        select_clause = "COUNT(*)"
+        group_clause = ""
+        
+    sql = f"""
+    SELECT {select_clause}
+    FROM {table}
+    WHERE {where_time}
+      AND [status] IN ({status_filter})
+    {group_clause}
+    """
+    
+    rows = _execute_db_query(server, user, password, database, sql, params, fetch_all=True)
+    
+    if group_by_status:
+        # Expected statuses: 'PASS', 'TIMEOUT'
+        result = {"PASS": 0, "TIMEOUT": 0}
+        for row in rows if rows else []:
+            status, count = row[0], int(row[1])
+            if status in result:
+                result[status] = count
+        return result
+    else:
+        # Single count (Total PASS today/month)
+        count = int(rows[0][0]) if rows and rows[0] and rows[0][0] is not None else 0
+        return count
 
 # ============================================================
-# DATABASE READ FUNCTIONS
+# REFACTORED PUBLIC API FUNCTIONS
 # ============================================================
 
 def read_last_7_days_by_task_from_db(
@@ -310,95 +389,55 @@ def read_last_7_days_by_task_from_db(
     table: str = "[DBx].[dbo].[PL_PPE]"
 ):
     """
-    Read last 7 days from database and group by date and task.
-    Returns: dict with structure:
-    {
-        "dates": ["24-11", "25-11", ...],
+    Reads last 7 days from database and group by date and task.
+    (Updated to use _execute_db_query for internal consistency)
+    """
+    # Query logic is unique and complex, so it stays, but execution is delegated.
+    sql = f"""
+    SELECT 
+        CONVERT(date, record_at) AS date,
+        enties_of_task,
+        COUNT(*) AS cnt
+    FROM {table}
+    WHERE status = 'PASS'
+      AND record_at >= DATEADD(DAY, -7, GETDATE())
+    GROUP BY CONVERT(date, record_at), enties_of_task
+    ORDER BY date ASC, enties_of_task
+    """
+    rows = _execute_db_query(server, user, password, database, sql, fetch_all=True)
+    
+    # Rest of the date/dict initialization logic is the same...
+    from datetime import datetime, timedelta
+    today = datetime.now().date()
+    dates = [(today - timedelta(days=6-i)).strftime("%d-%m") for i in range(7)]
+    
+    # Initialize result
+    result = {
+        "dates": dates,
         "tasks": {
-            "Chemical Analysis": [5, 3, 7, ...],
-            "Solder Ability Test": [2, 4, 1, ...],
-            ...
+            "Chemical Analysis": [0] * 7,
+            "Solder Ability Test": [0] * 7,
+            "Thickness Measurement": [0] * 7,
+            "Group Lead": [0] * 7,
+            "Manager": [0] * 7,
         }
     }
-    """
-    conn = None
-    try:
-        conn = pymssql.connect(host=server, user=user, password=password, database=database)
-        cur = conn.cursor()
+    
+    # Map วันที่กับ index
+    date_to_idx = {today - timedelta(days=6-i): i for i in range(7)}
+    
+    # ใส่ข้อมูลจาก database
+    for row in rows if rows else []:
+        date_obj = row[0]  # date object
+        task = row[1]      # task name
+        count = int(row[2])
         
-        # Query ดึงข้อมูล 7 วันล่าสุด แยกตาม task
-        sql = f"""
-        SELECT 
-            CONVERT(date, record_at) AS date,
-            enties_of_task,
-            COUNT(*) AS cnt
-        FROM {table}
-        WHERE status = 'PASS'
-          AND record_at >= DATEADD(DAY, -7, GETDATE())
-        GROUP BY CONVERT(date, record_at), enties_of_task
-        ORDER BY date ASC, enties_of_task
-        """
-        cur.execute(sql)
-        rows = cur.fetchall()
-        
-        # สร้าง structure สำหรับ 7 วัน
-        from datetime import datetime, timedelta
-        today = datetime.now().date()
-        dates = []
-        for i in range(6, -1, -1):
-            day = today - timedelta(days=i)
-            dates.append(day.strftime("%d-%m"))
-        
-        # Initialize result
-        result = {
-            "dates": dates,
-            "tasks": {
-                "Chemical Analysis": [0] * 7,
-                "Solder Ability Test": [0] * 7,
-                "Thickness Measurement": [0] * 7,
-                "Group Lead": [0] * 7,
-                "Manager": [0] * 7,
-            }
-        }
-        
-        # Map วันที่กับ index
-        date_to_idx = {}
-        for i in range(7):
-            day = today - timedelta(days=6-i)
-            date_to_idx[day] = i
-        
-        # ใส่ข้อมูลจาก database
-        for row in rows:
-            date_obj = row[0]  # date object
-            task = row[1]      # task name
-            count = int(row[2])
-            
-            if date_obj in date_to_idx and task in result["tasks"]:
-                idx = date_to_idx[date_obj]
-                result["tasks"][task][idx] = count
-        
-        logging.info(f"[DB_READ] 7-day task summary loaded from database")
-        return result
-        
-    except Exception as e:
-        logging.error(f"[DB_READ] read_last_7_days_by_task_from_db failed: {e}")
-        # Return empty structure
-        return {
-            "dates": [(datetime.now().date() - timedelta(days=6-i)).strftime("%d-%m") for i in range(7)],
-            "tasks": {
-                "Chemical Analysis": [0] * 7,
-                "Solder Ability Test": [0] * 7,
-                "Thickness Measurement": [0] * 7,
-                "Group Lead": [0] * 7,
-                "Manager": [0] * 7,
-            }
-        }
-    finally:
-        try:
-            if conn:
-                conn.close()
-        except:
-            pass
+        if date_obj in date_to_idx and task in result["tasks"]:
+            idx = date_to_idx[date_obj]
+            result["tasks"][task][idx] = count
+    
+    logging.info(f"[DB_READ] 7-day task summary loaded from database")
+    return result
 
 # --- MERGED DB READ FUNCTION ---
 def read_db_summary(
@@ -411,31 +450,18 @@ def read_db_summary(
 ):
     """
     Return list of (date, count) for last `days` days with status='PASS'
+    (Updated to use _execute_db_query for internal consistency)
     """
-    conn = None
-    try:
-        conn = pymssql.connect(host=server, user=user, password=password, database=database)
-        cur = conn.cursor()
-        sql = f"""
-        SELECT CONVERT(date, record_at) AS date, COUNT(*) AS cnt
-        FROM {table}
-        WHERE status = 'PASS'
-          AND record_at >= DATEADD(DAY, -%s, GETDATE())
-        GROUP BY CONVERT(date, record_at)
-        ORDER BY date ASC
-        """
-        cur.execute(sql, (days,))
-        rows = cur.fetchall()
-        return [(r[0], int(r[1])) for r in rows]
-    except Exception as e:
-        # logging.error(f"[DB_READ] read_db_entry_date failed: {e}")
-        return []
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
+    sql = f"""
+    SELECT CONVERT(date, record_at) AS date, COUNT(*) AS cnt
+    FROM {table}
+    WHERE status = 'PASS'
+      AND record_at >= DATEADD(DAY, -%s, GETDATE())
+    GROUP BY CONVERT(date, record_at)
+    ORDER BY date ASC
+    """
+    rows = _execute_db_query(server, user, password, database, sql, (days,), fetch_all=True)
+    return [(r[0], int(r[1])) for r in rows if r]
 
 
 def read_db_total_today(
@@ -447,34 +473,10 @@ def read_db_total_today(
 ) -> int:
     """
     Return total count of PASS records for TODAY only.
+    (Now calls _execute_db_read_count)
     """
-    conn = None
-    try:
-        today = date.today()
-        start = f"{today.year}-{today.month:02d}-{today.day:02d} 00:00:00"
-        end = f"{today.year}-{today.month:02d}-{today.day:02d} 23:59:59"
+    return _execute_db_read_count(server, user, password, database, table, time_frame="today", status_filter="'PASS'", group_by_status=False)
 
-        conn = pymssql.connect(host=server, user=user, password=password, database=database, login_timeout=3)
-        cur = conn.cursor()
-        sql = f"""
-        SELECT COUNT(*) FROM {table}
-        WHERE [status] = 'PASS'
-          AND [record_at] >= %s AND [record_at] <= %s
-        """
-        cur.execute(sql, (start, end))
-        row = cur.fetchone()
-        count = int(row[0] if row and row[0] is not None else 0)
-        # logging.info(f"[DB_READ] Total PASS today ({today}): {count}")
-        return count
-    except Exception as e:
-        # logging.error(f"[DB_READ] read_db_total_today failed: {e}")
-        return 0
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
 
 def read_db_total_month(
     server: str,
@@ -485,44 +487,9 @@ def read_db_total_month(
 ) -> int:
     """
     Return total count of PASS records for CURRENT MONTH only (from day 1 to last day).
+    (Now calls _execute_db_read_count)
     """
-    conn = None
-    try:
-        today = date.today()
-        first_day = date(today.year, today.month, 1)
-        start = f"{first_day.year}-{first_day.month:02d}-01 00:00:00"
-
-        conn = pymssql.connect(
-            host=server, 
-            user=user, 
-            password=password, 
-            database=database, 
-            login_timeout=3
-        )
-        cur = conn.cursor()
-
-        sql = f"""
-        SELECT COUNT(*) FROM {table}
-        WHERE [status] = 'PASS'
-          AND [record_at] >= %s 
-          AND [record_at] < DATEADD(MONTH, 1, %s)
-        """
-        cur.execute(sql, (start, start))
-        row = cur.fetchone()
-        count = int(row[0] if row and row[0] is not None else 0)
-        
-        logging.info(f"[DB_READ] Total PASS this month ({first_day.strftime('%Y-%m')}): {count}")
-        return count
-        
-    except Exception as e:
-        logging.error(f"[DB_READ] read_db_total_month failed: {e}")
-        return 0
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
+    return _execute_db_read_count(server, user, password, database, table, time_frame="month", status_filter="'PASS'", group_by_status=False)
 
 def read_pass_timeout_from_db(
     server: str,
@@ -533,58 +500,15 @@ def read_pass_timeout_from_db(
 ):
     """
     Read PASS and TIMEOUT counts for TODAY from database.
-    Returns: {"PASS": count, "TIMEOUT": count}
+    (Now calls _execute_db_read_count)
     """
-    conn = None
-    try:
-        today = date.today()
-        start = f"{today.year}-{today.month:02d}-{today.day:02d} 00:00:00"
-        end = f"{today.year}-{today.month:02d}-{today.day:02d} 23:59:59"
-
-        conn = pymssql.connect(
-            host=server, 
-            user=user, 
-            password=password, 
-            database=database, 
-            login_timeout=3
-        )
-        cur = conn.cursor()
-        
-        sql = f"""
-        SELECT 
-            [status],
-            COUNT(*) AS cnt
-        FROM {table}
-        WHERE [record_at] >= %s 
-          AND [record_at] <= %s
-          AND [status] IN ('PASS', 'TIMEOUT')
-        GROUP BY [status]
-        """
-        cur.execute(sql, (start, end))
-        rows = cur.fetchall()
-        
-        # Initialize result
-        result = {
-            "PASS": 0,
-            "TIMEOUT": 0
-        }
-        
-        # Fill in counts from database
-        for row in rows:
-            status = row[0]
-            count = int(row[1])
-            if status in result:
-                result[status] = count
-        
-        # logging.info(f"[DB_READ] Today's PASS/TIMEOUT: PASS={result['PASS']}, TIMEOUT={result['TIMEOUT']}")
-        return result
-        
-    except Exception as e:
-        # logging.error(f"[DB_READ] read_pass_timeout_from_db failed: {e}")
-        return {"PASS": 0, "TIMEOUT": 0}
-    finally:
-        try:
-            if conn: 
-                conn.close()
-        except: 
-            pass
+    return _execute_db_read_count(
+        server, 
+        user, 
+        password, 
+        database, 
+        table, 
+        time_frame="today", 
+        status_filter="'PASS', 'TIMEOUT'", 
+        group_by_status=True
+    )
