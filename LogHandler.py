@@ -25,6 +25,42 @@ LOG_DIR = "log/text"
 os.makedirs(LOG_DIR, exist_ok=True)
 _csv_lock = threading.Lock()
 
+def init_logger(name: str = "main") -> logging.Logger:
+    """
+    Create a date rotating logger that writes to file and terminal.
+    Format:
+        10:03:45 | INFO | IO | open_camera | Camera opened (index=0).
+    """
+    date_tag = datetime.datetime.now().strftime("%Y-%m-%d")
+    log_path = os.path.join(LOG_DIR, f"{date_tag}.log")
+
+    # --- format for both file and console ---
+    fmt = "%(asctime)s | %(levelname)s | %(name)s | %(funcName)s | %(message)s"
+    formatter = logging.Formatter(fmt, datefmt="%H:%M:%S")
+
+    # --- rotating file handler ---
+    file_handler = TimedRotatingFileHandler(
+        log_path, when="midnight", backupCount=7, encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+
+    # --- console (terminal) handler ---
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
+
+    # --- logger setup ---
+    logger = logging.getLogger(name)
+    logger.handlers.clear()
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    logger.info(f"Logger initialized for '{name}' → {log_path}")
+    return logger
+
 def call_datetime_now():
     """Return current datetime object."""
     date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -475,3 +511,25 @@ def read_pass_timeout_from_db(
         status_filter="'PASS', 'TIMEOUT'", 
         group_by_status=True
     )
+
+def read_today_summary_from_db(
+    server: str,
+    user: str,
+    password: str,
+    database: str,
+    table: str = "[DBx].[dbo].[PL_PPE]"
+):
+    """
+    Read summary of today's PASS and TIMEOUT counts from database.
+    (Now calls _execute_db_read_count)
+    """
+    return _execute_db_read_count(
+        server, 
+        user, 
+        password, 
+        database, 
+        table, 
+        time_frame="today", 
+        status_filter="'PASS', 'TIMEOUT'", 
+        group_by_status=True
+    )   
