@@ -6,29 +6,35 @@ from collections import Counter
 import pandas as pd
 from datetime import date
 
-# Archive file format
-# log/
-#  └── CSV/
-#      ├── Validate/
-#      │    ├── 2025/
-#      │    │    ├── 01/
-#      │    │    ├── 02/
-#      │    │    └── 11/
-#      │    │         └── Validate_2025-11-17.csv
-#      └── Emergency/
-#           └── 2025/
-#                └── 11/
-#                     └── Emergency_2025-11-17.csv
-
+"""
+Archive file format
+log/
+ └── CSV/
+     ├── Validate/
+     │    ├── 2025/
+     │    │    ├── 01/
+     │    │    ├── 02/
+     │    │    └── 11/
+     │    │         └── Validate_2025-11-17.csv
+     └── Emergency/
+          └── 2025/
+               └── 11/
+                    └── Emergency_2025-11-17.csv
+"""
 LOG_DIR = "log/text"
 os.makedirs(LOG_DIR, exist_ok=True)
 _csv_lock = threading.Lock()
 
+def call_datetime_now():
+    """Return current datetime object."""
+    date = datetime.datetime.now().strftime("%Y-%m-%d")
+    time = datetime.datetime.now().strftime("%H:%M:%S") 
+    return date, time
+
 class CSVFormatter(logging.Formatter):
     """Custom formatter for compact CSV-like output."""
     def format(self, record):
-        date = datetime.datetime.now().strftime("%d/%m/%y")
-        time = datetime.datetime.now().strftime("%H:%M:%S")
+        date, time = call_datetime_now()
         return f"{date}|{time} | {record.levelname} | {record.name} | {record.funcName} | {record.getMessage()}"
 
 def write_csv_log(log_type: str, **kwargs):
@@ -75,7 +81,15 @@ def write_csv_log(log_type: str, **kwargs):
     return {"timestamp": timestamp, "csv_path": str(csv_path)}
 
 # --- NEW CORE DB UTILITY ---
-def _execute_db_query(server: str, user: str, password: str, database: str, sql: str, params: tuple = None, fetch_one=False, fetch_all=False, commit=False):
+def _execute_db_query(server: str, 
+                      user: str, 
+                      password: str, 
+                      database: str, 
+                      sql: str, 
+                      params: tuple = None, 
+                      fetch_one=False, 
+                      fetch_all=False, 
+                      commit=False):
     """Internal function to handle DB connection, query execution, and cleanup."""
     conn = None
     try:
