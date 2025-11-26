@@ -150,32 +150,31 @@ def read_log_summary(days_back=7, base="log/CSV"):
             try:
                 df = pd.read_csv(file_path)
                 
-                # Check required columns exist
+                # --- 1. Log-Type Specific Column Check ---
+                required_cols = []
                 if folder_name == "Validate":
-                    required = ["TASK", "Validation Status", "TimeStamp"]
-                    if not set(required).issubset(df.columns):
-                        logging.warning(f"Skip {file_path}: missing columns {required}")
-                        continue
-                    
-                    # Parse timestamp and filter by date
+                    required_cols = ["TASK", "Validation Status", "TimeStamp"]
+                elif folder_name == "Emergency":
+                    required_cols = ["TimeStamp", "Status"]
+                
+                if not set(required_cols).issubset(df.columns):
+                    logging.warning(f"Skip {file_path}: missing columns {required_cols}")
+                    continue
+
+                # --- 2. Consolidated Timestamp Filtering Logic ---
+                # This block was previously repeated for Validate and Emergency
+                if "TimeStamp" in df.columns:
+                    # Parse timestamp
                     df["TimeStamp"] = pd.to_datetime(df["TimeStamp"], errors="coerce")
-                    df = df.dropna(subset=["TimeStamp"])  # Remove invalid timestamps
-                    
+                    # Remove invalid timestamps
+                    df = df.dropna(subset=["TimeStamp"])  
                     # Filter rows from this specific day onwards
                     df = df[df["TimeStamp"].dt.date >= day]
-                    
-                    if not df.empty:
-                        frames.append(df)
-                        logging.info(f"Loaded {len(df)} rows from {file_path}")
-                        
-                elif folder_name == "Emergency":
-                    if "TimeStamp" not in df.columns or "Status" not in df.columns:
-                        continue
-                    df["TimeStamp"] = pd.to_datetime(df["TimeStamp"], errors="coerce")
-                    df = df.dropna(subset=["TimeStamp"])
-                    df = df[df["TimeStamp"].dt.date >= day]
-                    if not df.empty:
-                        frames.append(df)
+                
+                # --- 3. Append valid DataFrame ---
+                if not df.empty:
+                    frames.append(df)
+                    logging.info(f"Loaded {len(df)} rows from {file_path}")
                         
             except Exception as e:
                 logging.error(f"Error reading {file_path}: {e}")
@@ -200,8 +199,6 @@ def read_log_summary(days_back=7, base="log/CSV"):
             count = ((val_df["TASK"] == task) &
                     (val_df["Validation Status"] == "PASS")).sum()
             result[task] = int(count)
-            # if count > 0:
-            #     logging.info(f"Task '{task}': {count} PASS records")
 
     # ---------------- Emergency logs ----------------
     emg_df = collect_frames("Emergency")
@@ -210,7 +207,6 @@ def read_log_summary(days_back=7, base="log/CSV"):
         result["hardware_events"] = dict(Counter(emg_df[hw_mask]["Status"]))
         result["emergency_events"] = dict(Counter(emg_df[~hw_mask]["Status"]))
 
-    # logging.info(f"Summary result: {result}")
     return result
 
 # --- NEW CORE DB UTILITY (Kept as is) ---
