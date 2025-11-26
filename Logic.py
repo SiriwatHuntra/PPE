@@ -212,7 +212,7 @@ class LogicController(QtCore.QObject):
             
             # Check if cap exists and is opened
             if cap is None or not cap.isOpened():
-                cap_opened = False
+                cap_opened = callable(getattr(cap, "isOpened", None)) and cap.isOpened()
             else:
                 # Try to actually read a frame to verify hardware connection
                 ret, test_frame = cap.read()
