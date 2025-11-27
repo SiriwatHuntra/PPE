@@ -353,6 +353,16 @@ def write_db_log(
 # ============================================================
 # NEW BUNDLED READ FUNCTIONS
 # ============================================================
+def _get_db_params(server, user, password, database, table):
+    """Helper to bundle DB connection parameters."""
+    return {
+        "server": server,
+        "user": user,
+        "password": password,
+        "database": database,
+        "table": table
+    }
+
 def _get_db_read_sql_and_params(time_frame: str):
     """
     Helper to get the WHERE clause and parameters for different timeframes.
