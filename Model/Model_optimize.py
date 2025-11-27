@@ -356,6 +356,7 @@ def detect_objects(image_bgr: np.ndarray,
     Run ONNX YOLO detection and annotate image with bounding boxes.
     Returns (Counter, annotated_image)
     """
+    image_bgr = cv.resize(image_bgr, (976, 725))
     orig = image_bgr  # keep original reference for later
     H0, W0 = orig.shape[:2]
 
