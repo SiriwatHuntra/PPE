@@ -303,8 +303,9 @@ class LogicController(QtCore.QObject):
             return
 
         try:
-            resized = cv2.resize(frame, (980, 1580))
-            #resized = frame
+            # Resize directly to the size required by the model pipeline
+            #resized = cv2.resize(frame, (976, 725))
+            resized = frame
             self.model_handler.push_frame(resized)
             
             # --- Save Image every 3 seconds to "data" folder ---
